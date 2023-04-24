@@ -16,7 +16,8 @@ import pandapower.estimation
 
 import xml.etree.ElementTree as ET
 
-print('Test')
+EQ=ET.parse('Assignment_EQ_reduced.xml') 
+grid=EQ.getroot()
 
 
 
