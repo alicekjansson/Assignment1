@@ -24,23 +24,36 @@ class Buses:
         self.grid=eq.getroot()
         self.loadflow=ssh.getroot()
         self.bus_list=self.grid.findall('cim:BusbarSection',ns)
+        self.df.index=[bus.attrib.get(ns['rdf']+'ID') for bus in self.bus_list]
+        self.df=self.insert_busdata()
+        self.df['InService']=[True for el in range(len(self.bus_list))]
+        self.df['Type']=['b' for el in range(len(self.bus_list))]
         
-    def get_connectors(self,busbar):
-        connect_list=[]
-        return connect_list
+    def insert_busdata(self):
+        names=[]
+        voltages=[[],[],[]]
+        for bus in self.bus_list:
+            name=bus.find('cim:IdentifiedObject.name',ns)
+            names.append(name.text)
+            con=bus.find('cim:Equipment.EquipmentContainer',ns)
+            for vl in self.grid.findall('cim:VoltageLevel',ns):
+                if con.attrib.get(ns['rdf']+'resource') == "#" + vl.attrib.get(ns['rdf']+'ID'):
+                    voltages[0].append(vl.find('cim:VoltageLevel.lowVoltageLimit',ns).text)
+                    voltages[1].append(vl.find('cim:IdentifiedObject.name',ns).text)
+                    voltages[2].append(vl.find('cim:VoltageLevel.highVoltageLimit',ns).text)
+        self.df['Name']=names
+        self.df['ipMax']=[(bus.find('cim:BusbarSection.ipMax',ns).text) for bus in self.bus_list]
+        self.df['lowVoltageLimit']=voltages[0]
+        self.df['VoltageLevel']=voltages[1]
+        self.df['highVoltageLimit']=voltages[2]
+        return self.df
     
     def get_df(self):
         return self.df
     
-    def get_list(self):
-        return self.bus_list
-        
-    def setup(self):
-        #Fill up dataframe based on XML files
-        return
-    
 #Test code
-buses=Buses(eq,ssh,ns).get_list()
+buses=Buses(eq,ssh,ns)
+df_buses=buses.get_df()
 
     
 class Transformers:
