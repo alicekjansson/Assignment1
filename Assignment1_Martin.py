@@ -37,7 +37,7 @@ class Loads(GridObjects):
     
     def get_cim_data(self, buses):
         
-        for load in self.list:
+       # for load in self.list:
 
         
         
