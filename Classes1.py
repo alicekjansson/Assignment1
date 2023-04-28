@@ -6,13 +6,6 @@ Created on Mon Apr 24 11:09:05 2023
 """
 import pandas as pd
 import xml.etree.ElementTree as ET
-#Step 1: Parse XML files
-eq=ET.parse('Assignment_EQ_reduced.xml') 
-ssh=ET.parse('Assignment_SSH_reduced.xml') 
-ns=ns = {'cim':'http://iec.ch/TC57/2013/CIM-schema-cim16#',
-      'entsoe':'http://entsoe.eu/CIM/SchemaExtension/3/1#',
-      'rdf':'{http://www.w3.org/1999/02/22-rdf-syntax-ns#}',
-      'md':"http://iec.ch/TC57/61970-552/ModelDescription/1#"}
 
 
 class GridObjects:
@@ -32,8 +25,6 @@ class Buses(GridObjects):
     
     def __init__(self, eq, ssh, ns, element_type = "BusbarSection"):
         super().__init__(eq, ssh, ns, element_type)
-        self.grid=eq.getroot()
-        self.loadflow=ssh.getroot()
         self.bus_list=self.grid.findall('cim:BusbarSection',ns)
         self.df=self.insert_busdata()
         # self.df['InService']=[True for el in range(len(self.bus_list))]       #Solve this eventually from SSH?
@@ -75,50 +66,53 @@ class Buses(GridObjects):
     def get_df(self):
         return self.df
     
+class Transformers(GridObjects):
+    
+    def __init__(self, eq, ssh, ns, element_type = "PowerTransformer"):
+        super().__init__(eq, ssh, ns, element_type)
+        self.trans_list=self.grid.findall('cim:PowerTransformer',ns)
+        self.df=self.insert_busdata()
+        
+    def insert_busdata(self):
+        names=[]
+        for trans in self.trans_list:
+            name=trans.find('cim:IdentifiedObject.name',ns)
+            names.append(name.text)
+        self.df['Name']=names
+        return self.df
+    
+    def get_df(self):
+        return self.df
+
+
+#Step 1: Parse XML files
+eq=ET.parse('Assignment_EQ_reduced.xml') 
+ssh=ET.parse('Assignment_SSH_reduced.xml') 
+ns=ns = {'cim':'http://iec.ch/TC57/2013/CIM-schema-cim16#',
+      'entsoe':'http://entsoe.eu/CIM/SchemaExtension/3/1#',
+      'rdf':'{http://www.w3.org/1999/02/22-rdf-syntax-ns#}',
+      'md':"http://iec.ch/TC57/61970-552/ModelDescription/1#"}
+
 #Test code
 buses=Buses(eq,ssh,ns)
 df_buses=buses.get_df()
+transformers=Transformers(eq,ssh,ns)
+df_trans=transformers.get_df()
 
     
-class Transformers:
-    
-    def __init__(self,eq,ssh,ns):
-        self.eq=eq
-        self.ssh=ssh
-        self.ns=ns
-        self.df=pd.DataFrame()
-        self.grid=eq.getroot()
-        self.loadflow=ssh.getroot()
-        
-    def setup(self):
-        #Fill up dataframe based on XML files
-        return
 
-class Lines:
-    
-    def __init__(self,eq,ssh,ns):
-        self.eq=eq
-        self.ssh=ssh
-        self.ns=ns
-        self.df=pd.DataFrame()
-        self.grid=eq.getroot()
-        self.loadflow=ssh.getroot()
         
-    def setup(self):
-        #Fill up dataframe based on XML files
-        return
+
+
+
+class Lines(GridObjects):
     
-class Shunts:
+    def __init__(self, eq, ssh, ns, element_type = "BusbarSection"):
+        super().__init__(eq, ssh, ns, element_type)
     
-    def __init__(self,eq,ssh,ns):
-        self.eq=eq
-        self.ssh=ssh
-        self.ns=ns
-        self.df=pd.DataFrame()
-        self.grid=eq.getroot()
-        self.loadflow=ssh.getroot()
-        
-    def setup(self):
-        #Fill up dataframe based on XML files
-        return
+#This is maybe??
+# class Shunts(GridObjects):
+    
+#     def __init__(self, eq, ssh, ns, element_type = "BusbarSection"):
+#         super().__init__(eq, ssh, ns, element_type)
     
