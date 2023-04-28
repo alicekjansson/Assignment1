@@ -26,7 +26,7 @@ class Buses:
         self.bus_list=self.grid.findall('cim:BusbarSection',ns)
         self.df.index=[bus.attrib.get(ns['rdf']+'ID') for bus in self.bus_list]
         self.df=self.insert_busdata()
-        self.df['InService']=[True for el in range(len(self.bus_list))]
+        # self.df['InService']=[True for el in range(len(self.bus_list))]       #Solve this eventually from SSH?
         self.df['Type']=['b' for el in range(len(self.bus_list))]
         
     def insert_busdata(self):
