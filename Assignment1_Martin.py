@@ -9,7 +9,7 @@ import pandapower as pp
 import xml.etree.ElementTree as ET
 
 
-class GridObjects:
+class GridNodeObjects:
     
     def __init__(self,eq,ssh,ns,element_type):
         self.eq=eq
@@ -19,39 +19,43 @@ class GridObjects:
         self.ldf=ssh.getroot()
         self.df=pd.DataFrame()
         self.list=self.grid.findall('cim:'+element_type,ns)
-        self.df['ID']=[element.attrib.get(ns['rdf']+'ID') for element in self.list]
+        self.name = []
+        self.connect = []
         
         
-class Buses(GridObjects):
+    def get_cim_connectivity(self):
+        for item in self.list:
+            self.name.append(item.find('cim:IdentifiedObject.name',ns).text)
+            for terminal in self.grid.findall('cim:Terminal',ns):
+                if terminal.find('cim:Terminal.ConductingEquipment',ns).attrib.get(ns['rdf']+'resource') == "#" + item.attrib.get(ns['rdf']+'ID'):
+                    self.connect.append(terminal.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource'))
+        
+        self.df['name']=self.name
+        self.df['connection']=self.connect
+        
+        
+class Buses(GridNodeObjects):
     
     def __init__(self, eq, ssh, ns, element_type = "BusbarSection"):
         super().__init__(eq, ssh, ns, element_type)
         
- 
+    def create_pp_buses(net, self):
         
-class Loads(GridObjects):
+        
+
+class Loads(GridNodeObjects):
     
     def __init__(self, eq, ssh, ns, element_type = "EnergyConsumer"):
         super().__init__(eq, ssh, ns, element_type)
         
-    
-    def get_cim_data(self, buses):
-        
-       # for load in self.list:
 
-        
-        
     
-        # required data: bus connection, 
-        
-    
-    
-class Generators(GridObjects):
+class Generators(GridNodeObjects):
     
     def __init__(self,eq,ssh,ns, element_type = "GeneratingUnit"):
         super().__init__(eq, ssh, ns, element_type)
         
-        
+             
 
 eq = ET.parse('MicroGridTestConfiguration_T1_NL_EQ_V2.xml')
 ssh = ET.parse('MicroGridTestConfiguration_T1_NL_SSH_V2.xml')
@@ -62,14 +66,21 @@ ns = {'cim':'http://iec.ch/TC57/2013/CIM-schema-cim16#',
       'md':"http://iec.ch/TC57/61970-552/ModelDescription/1#"}
 
 buses = Buses(eq,ssh,ns)
-  
 loads = Loads(eq,ssh,ns)
-loads.get_cim_data(buses)
+gens = Generators(eq,ssh,ns,"SynchronousMachine")
 
-print(test_buses.df)
-print(net.bus)
 
-test_gen = Generators(eq,ssh,ns,"GeneratingUnit")
-test_gen2 = Generators(eq,ssh,ns, "ThermalGeneratingUnit")
-print(test_gen.df)
-print(test_gen2.df)
+buses.get_cim_connectivity()
+loads.get_cim_connectivity()
+gens.get_cim_connectivity()
+
+
+print(buses.name)
+print(loads.name)
+print(gens.name)
+
+  
+net = pp.create_empty_network() 
+
+
+
