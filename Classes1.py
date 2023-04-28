@@ -14,17 +14,27 @@ ns=ns = {'cim':'http://iec.ch/TC57/2013/CIM-schema-cim16#',
       'rdf':'{http://www.w3.org/1999/02/22-rdf-syntax-ns#}',
       'md':"http://iec.ch/TC57/61970-552/ModelDescription/1#"}
 
-class Buses:
+
+class GridObjects:
     
-    def __init__(self,eq,ssh,ns):
+    def __init__(self,eq,ssh,ns,element_type):
         self.eq=eq
         self.ssh=ssh
         self.ns=ns
+        self.grid=eq.getroot()
+        self.ldf=ssh.getroot()
         self.df=pd.DataFrame()
+        self.list=self.grid.findall('cim:'+element_type,ns)
+        self.df['ID']=[element.attrib.get(ns['rdf']+'ID') for element in self.list]
+        
+        
+class Buses(GridObjects):
+    
+    def __init__(self, eq, ssh, ns, element_type = "BusbarSection"):
+        super().__init__(eq, ssh, ns, element_type)
         self.grid=eq.getroot()
         self.loadflow=ssh.getroot()
         self.bus_list=self.grid.findall('cim:BusbarSection',ns)
-        self.df.index=[bus.attrib.get(ns['rdf']+'ID') for bus in self.bus_list]
         self.df=self.insert_busdata()
         # self.df['InService']=[True for el in range(len(self.bus_list))]       #Solve this eventually from SSH?
         self.df['Type']=['b' for el in range(len(self.bus_list))]
