@@ -75,10 +75,41 @@ class Transformers(GridObjects):
         
     def insert_busdata(self):
         names=[]
+        subs=[]
+        connections=[[],[]]
+        voltages=[[],[]]
+        rateds=[[],[]]
+        ratedu=[[],[]]
         for trans in self.trans_list:
             name=trans.find('cim:IdentifiedObject.name',ns)
             names.append(name.text)
+            subid=trans.find('cim:Equipment.EquipmentContainer',ns).attrib.get(ns['rdf']+'resource')
+            transid=trans.attrib.get(ns['rdf']+'ID')
+            #Add substation info
+            for sub in self.grid.findall('cim:Substation',ns):
+                if subid == '#' + sub.attrib.get(ns['rdf']+'ID'):
+                    subs.append(sub.find('cim:IdentifiedObject.name',ns).text)
+            #Add data about two sides of transformer
+            i=0     #Keep track of which side of transformer
+            for transend in self.grid.findall('cim:PowerTransformerEnd',ns):
+                if '#' + transid == transend.find('cim:PowerTransformerEnd.PowerTransformer',ns).attrib.get(ns['rdf']+'resource'):
+                    rateds[i].append(transend.find('cim:PowerTransformerEnd.ratedS',ns).text)
+                    ratedu[i].append(transend.find('cim:PowerTransformerEnd.ratedU',ns).text)
+                    i=i+1
+
         self.df['Name']=names
+        self.df['Substation']=subs
+        self.df['End1RatedS']=rateds[0]
+        self.df['End1RatedU']=ratedu[0]
+        self.df['End2RatedS']=rateds[1]
+        self.df['End2RatedU']=ratedu[1]
+        #Iterate through terminals (and connectivitynodes) to find where transformer is connected
+        # for terminal in self.grid.findall('cim:Terminal',ns):
+        #     if terminal.find('cim:Terminal.ConductingEquipment',ns).attrib.get(ns['rdf']+'resource') == "#" + id1:
+        #         connections[0].append(terminal.find('cim:IdentifiedObject.name',ns).text)
+        #         for cn in self.grid.findall('cim:ConnectivityNode',ns):
+        #             if terminal.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource') == "#" + cn.attrib.get(ns['rdf']+'ID'):
+        #                 connections[1].append(cn.find('cim:IdentifiedObject.name',ns).text)
         return self.df
     
     def get_df(self):
