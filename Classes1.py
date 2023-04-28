@@ -33,23 +33,26 @@ class Buses:
         names=[]
         voltages=[[],[],[]]
         connections=[[],[]]
+        #Iterate through all buses and collect data
         for bus in self.bus_list:
             name=bus.find('cim:IdentifiedObject.name',ns)
             names.append(name.text)
             con=bus.find('cim:Equipment.EquipmentContainer',ns)
             id1=bus.attrib.get(ns['rdf']+'ID')
+            #Iterate through voltagelevels to collect voltages
             for vl in self.grid.findall('cim:VoltageLevel',ns):
                 if con.attrib.get(ns['rdf']+'resource') == "#" + vl.attrib.get(ns['rdf']+'ID'):
                     voltages[0].append(vl.find('cim:VoltageLevel.lowVoltageLimit',ns).text)
                     voltages[1].append(vl.find('cim:IdentifiedObject.name',ns).text)
                     voltages[2].append(vl.find('cim:VoltageLevel.highVoltageLimit',ns).text)
+            #Iterate through terminals (and connectivitynodes) to find where bus is connected
             for terminal in self.grid.findall('cim:Terminal',ns):
                 if terminal.find('cim:Terminal.ConductingEquipment',ns).attrib.get(ns['rdf']+'resource') == "#" + id1:
                     connections[0].append(terminal.find('cim:IdentifiedObject.name',ns).text)
                     for cn in self.grid.findall('cim:ConnectivityNode',ns):
                         if terminal.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource') == "#" + cn.attrib.get(ns['rdf']+'ID'):
                             connections[1].append(cn.find('cim:IdentifiedObject.name',ns).text)
-                            
+        #Add data to dataframe               
         self.df['Name']=names
         self.df['ipMax']=[(bus.find('cim:BusbarSection.ipMax',ns).text) for bus in self.bus_list]
         self.df['lowVoltageLimit']=voltages[0]
@@ -57,9 +60,6 @@ class Buses:
         self.df['highVoltageLimit']=voltages[2]
         self.df['Node']=connections[1]
         self.df['Terminal']=connections[0]
-        
-        
-            
         return self.df
     
     def get_df(self):
