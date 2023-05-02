@@ -179,14 +179,7 @@ df_trans=transformers.get_df()
 lines=Lines(eq,ssh,ns)
 df_lines=lines.get_df()
 
-    
-
-        
-
-
-
-
-    
+  
 #This is maybe??
 # class Shunts(GridObjects):
     
