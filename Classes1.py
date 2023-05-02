@@ -6,6 +6,9 @@ Created on Mon Apr 24 11:09:05 2023
 """
 import pandas as pd
 import xml.etree.ElementTree as ET
+from functions import get_node
+
+
 
 
 class GridObjects:
@@ -75,10 +78,46 @@ class Transformers(GridObjects):
         
     def insert_busdata(self):
         names=[]
+        subs=[]
+        term=[[],[]]
+        node=[[],[]]
+        rateds=[[],[]]
+        ratedu=[[],[]]
         for trans in self.trans_list:
             name=trans.find('cim:IdentifiedObject.name',ns)
             names.append(name.text)
+            subid=trans.find('cim:Equipment.EquipmentContainer',ns).attrib.get(ns['rdf']+'resource')
+            transid=trans.attrib.get(ns['rdf']+'ID')            #ID of PowerTransformer
+            #Add substation info
+            for sub in self.grid.findall('cim:Substation',ns):
+                if subid == '#' + sub.attrib.get(ns['rdf']+'ID'):
+                    subs.append(sub.find('cim:IdentifiedObject.name',ns).text)
+            #Add data about two sides of transformer
+            i=0     #Keep track of which side of transformer
+            for transend in self.grid.findall('cim:PowerTransformerEnd',ns):
+                
+                if '#' + transid == transend.find('cim:PowerTransformerEnd.PowerTransformer',ns).attrib.get(ns['rdf']+'resource'):
+                    idend=transend.attrib.get(ns['rdf']+'ID')   #ID of PowerTransformerEnd
+                    rateds[i].append(transend.find('cim:PowerTransformerEnd.ratedS',ns).text)
+                    ratedu[i].append(transend.find('cim:PowerTransformerEnd.ratedU',ns).text)
+                    #Get data on terminals the transformer end is connected to
+                    for terminal in self.grid.findall('cim:Terminal',ns):
+                        if transend.find('cim:TransformerEnd.Terminal',ns).attrib.get(ns['rdf']+'resource') == "#" + terminal.attrib.get(ns['rdf']+'ID'):
+                            term[i].append(terminal.find('cim:IdentifiedObject.name',ns).text)
+                            node[i].append(get_node(self.grid,terminal))    
+                    i=i+1
+
         self.df['Name']=names
+        self.df['Substation']=subs
+        self.df['HVRatedS']=rateds[0]
+        self.df['HV1RatedU']=ratedu[0]
+        self.df['LVRatedS']=rateds[1]
+        self.df['LVRatedU']=ratedu[1]
+        self.df['HVTerminal']=term[0]
+        self.df['LVTerminal']=term[1]
+        self.df['HVNode']=node[0]
+        self.df['LVNode']=node[1]
+
         return self.df
     
     def get_df(self):
