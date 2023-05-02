@@ -134,6 +134,7 @@ class Lines(GridObjects):
         pars=[[],[]]
         for line in self.line_list:
             lineid=line.attrib.get(ns['rdf']+'ID')  
+            #Collect line data
             name=line.find('cim:IdentifiedObject.name',ns)
             names.append(name.text)
             l=line.find('cim:Conductor.length',ns).text
