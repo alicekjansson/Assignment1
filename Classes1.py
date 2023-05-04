@@ -19,7 +19,7 @@ class GridObjects:
         self.ldf=ssh.getroot()
         self.df=pd.DataFrame()
         self.list=self.grid.findall('cim:'+element_type,ns)
-        # self.df['ID']=[element.attrib.get(ns['rdf']+'ID') for element in self.list]
+        self.df['ID']=[element.attrib.get(ns['rdf']+'ID') for element in self.list]
         
         
 class Buses(GridObjects):
@@ -105,7 +105,7 @@ class Transformers(GridObjects):
         self.df['Name']=names
         self.df['Substation']=subs
         self.df['HVRatedS']=rateds[0]
-        self.df['HV1RatedU']=ratedu[0]
+        self.df['HVRatedU']=ratedu[0]
         self.df['LVRatedS']=rateds[1]
         self.df['LVRatedU']=ratedu[1]
         self.df['HVTerminal']=term[0]

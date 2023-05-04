@@ -27,12 +27,19 @@ df_buses=Buses(eq,ssh,ns).get_df()
 df_trans=Transformers(eq,ssh,ns).get_df()
 df_lines=Lines(eq,ssh,ns).get_df()
 
+
 #Step 3: Create pandapower objects
 net=pp.create_empty_network()
 for i,cimbus in df_buses.transpose().items():
     pp.create_bus(net,vn_kv=cimbus['VoltageLevel'],name=cimbus['Name'])
 for i,cimtrf in df_trans.transpose().items():
-    pp.create_transformer(net,cimtrf['HVTerminal'],cimtrf['LVTerminal'],std_type=,name=cimtrf['Name'])  
+    from_bus = pp.get_element_index(net, "bus", cimtrf['HVTerminal'])
+    to_bus = pp.get_element_index(net, "bus", cimtrf['LVTerminal'])
+    name=cimtrf['Name']
+    std_type="25 MVA 110/20 kV"
+    pp.create_transformer(net,from_bus,to_bus,name,std_type) 
+    
+    # pp.create_transformer(net,hv_bus=cimtrf['HVTerminal'],lv_bus=cimtrf['LVTerminal'],name=cimtrf['Name'],std_type="25 MVA 110/20 kV")  
 
 #OBS how to choose standard type??
 # for i,cimline in df_lines.transpose().items():
