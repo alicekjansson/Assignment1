@@ -19,32 +19,34 @@ class GridNodeObjects:
         self.ldf=ssh.getroot()
         self.df=pd.DataFrame()
         self.list=self.grid.findall('cim:'+element_type,ns)
-        self.name = []
         self.connect = []
+        
+        self.df['ID']=[element.attrib.get(ns['rdf']+'ID') for element in self.list]
+        self.df['name']=[element.find('cim:IdentifiedObject.name',ns).text for element in self.list]
             
         
     def get_cim_connectivity(self):
-        for item in self.list:
-            self.name.append(item.find('cim:IdentifiedObject.name',ns).text)
+        for item in self.list:       
             for terminal in self.grid.findall('cim:Terminal',ns):
                 if terminal.find('cim:Terminal.ConductingEquipment',ns).attrib.get(ns['rdf']+'resource') == "#" + item.attrib.get(ns['rdf']+'ID'):
                     self.connect.append(terminal.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource'))
         
-        self.df['name']=self.name
         self.df['connection']=self.connect
         
     def find_bus_connection(self, buses):
         
         bus_name_list = []
         for item in self.df['connection']: 
-
             bus_row = buses.df.loc[buses.df['connection'] == item]
-            
             if bus_row.empty is False:
                 bus_name_list.append(bus_row['name'].values[0])
             else:
+                for terminal in self.grid.findall('cim:Terminal',ns):
+                    if terminal.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource') == item:
+                        print('ok')
                 bus_name_list.append(False)
         self.df['bus_connection'] = bus_name_list
+        
             
         
 class Buses(GridNodeObjects):
@@ -53,15 +55,14 @@ class Buses(GridNodeObjects):
         super().__init__(eq, ssh, ns, element_type)
         
     def get_cim_data(self):
-        self.voltage_lvl = []
-        
-        for item in self.list:
-            container= item.find('cim:Equipment.EquipmentContainer',ns)
+        voltage_lvl = []  
+        for bus in self.list:
+            container= bus.find('cim:Equipment.EquipmentContainer',ns)
             for vl in self.grid.findall('cim:VoltageLevel',ns):
                 if container.attrib.get(ns['rdf']+'resource') == "#" + vl.attrib.get(ns['rdf']+'ID'):
-                    self.voltage_lvl.append(vl.find('cim:IdentifiedObject.name',ns).text)
+                    voltage_lvl.append(vl.find('cim:IdentifiedObject.name',ns).text)
         
-        self.df['voltage'] = self.voltage_lvl
+        self.df['voltage'] = voltage_lvl
         
 
     def create_pp_bus(self, net):
@@ -76,17 +77,47 @@ class Loads(GridNodeObjects):
     def __init__(self, eq, ssh, ns, element_type = "EnergyConsumer"):
         super().__init__(eq, ssh, ns, element_type)
         
-
+        load_power =[]
+        for load_id in self.df['ID']:   
+            for element in self.ldf.findall('cim:'+element_type,ns):
+                if '#' + load_id  == element.attrib.get(ns['rdf']+'about'):
+                    load_power.append(element.find('cim:EnergyConsumer.p',ns).text)
+        self.df['p']=load_power
+        
+        
+    def create_pp_load(self, net):
+        for load_name, bus_name, active_power in zip(self.df['name'],self.df['bus_connection'], self.df['p']):
+            if bus_name is not False:
+                bus = pp.get_element_index(net, "bus", bus_name)
+                pp.create_load(net, bus, active_power, name =load_name)
+        
     
 class Generators(GridNodeObjects):
     
     def __init__(self,eq,ssh,ns, element_type = "SynchronousMachine"):
         super().__init__(eq, ssh, ns, element_type)
         
+        gen_power =[]
+        for gen_id in self.df['ID']:   
+            for element in self.ldf.findall('cim:'+element_type,ns):
+                if '#' + gen_id  == element.attrib.get(ns['rdf']+'about'):
+                    gen_power.append(element.find('cim:RotatingMachine.p',ns).text)
+        self.df['p']=gen_power
+        
+        
+    def create_pp_gen(self, net):
+        for gen_name, bus_name, active_power in zip(self.df['name'],self.df['bus_connection'], self.df['p']):
+            if bus_name is not False:
+                bus = pp.get_element_index(net, "bus", bus_name)
+                pp.create_gen(net, bus, active_power, name =gen_name)
+        
              
 
-eq = ET.parse('MicroGridTestConfiguration_T1_NL_EQ_V2.xml')
-ssh = ET.parse('MicroGridTestConfiguration_T1_NL_SSH_V2.xml')
+#eq = ET.parse('MicroGridTestConfiguration_T1_NL_EQ_V2.xml')
+#ssh = ET.parse('MicroGridTestConfiguration_T1_NL_SSH_V2.xml')
+eq = ET.parse('Assignment_EQ_reduced.xml')
+ssh = ET.parse('Assignment_SSH_reduced.xml')
+
 
 ns = {'cim':'http://iec.ch/TC57/2013/CIM-schema-cim16#',
       'entsoe':'http://entsoe.eu/CIM/SchemaExtension/3/1#',
@@ -106,19 +137,18 @@ gens.find_bus_connection(buses)
 
 buses.get_cim_data()
 
-
-
-#print(loads.name)
-#print(gens.name)
-
-  
 net = pp.create_empty_network()
-
-
 buses.create_pp_bus(net)
-print(net.bus) 
+loads.create_pp_load(net)
+gens.create_pp_gen(net)
+
+
+
 print(buses.df)
 print(loads.df)
 print(gens.df)
+print(net.bus) 
+print(net.load) 
+print(net.gen)
 
 
