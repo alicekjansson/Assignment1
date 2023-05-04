@@ -20,18 +20,7 @@ class GridObjects:
         self.df=pd.DataFrame()
         self.list=self.grid.findall('cim:'+element_type,ns)
         self.df['ID']=[element.attrib.get(ns['rdf']+'ID') for element in self.list]
-        
-        def find_bus_connection(self, buses):
-            bus_name_list = []
-            for item in self.df['connection']: 
-                bus_row = buses.df.loc[buses.df['connection'] == item]
-                if bus_row.empty is False:
-                    bus_name_list.append(bus_row['name'].values[0])
-                else:
-                    bus_name_list.append(False)
-            self.df['bus_connection'] = bus_name_list
-        
-        
+        self.df['Name']=[bus.find('cim:IdentifiedObject.name',ns).text for bus in self.list]
         
 class Buses(GridObjects):
     
@@ -43,13 +32,10 @@ class Buses(GridObjects):
         self.df['Type']=['b' for el in range(len(self.bus_list))]
         
     def insert_busdata(self):
-        names=[]
         voltages=[[],[],[]]
         connections=[[],[]]
         #Iterate through all buses and collect data
         for bus in self.bus_list:
-            name=bus.find('cim:IdentifiedObject.name',ns)
-            names.append(name.text)
             con=bus.find('cim:Equipment.EquipmentContainer',ns)
             id1=bus.attrib.get(ns['rdf']+'ID')
             #Iterate through voltagelevels to collect voltages
@@ -65,7 +51,6 @@ class Buses(GridObjects):
                     connections[1].append(get_node(self.grid,terminal))
                             
         #Add data to dataframe               
-        self.df['Name']=names
         self.df['ipMax']=[(bus.find('cim:BusbarSection.ipMax',ns).text) for bus in self.bus_list]
         self.df['lowVoltageLimit']=voltages[0]
         self.df['VoltageLevel']=voltages[1]
@@ -87,14 +72,11 @@ class Transformers(GridObjects):
         self.df=self.insert_transdata()
         
     def insert_transdata(self):
-        names=[]
         subs=[]
         node=[[],[]]
         rateds=[[],[]]
         ratedu=[[],[]]
         for trans in self.trans_list:
-            name=trans.find('cim:IdentifiedObject.name',ns)
-            names.append(name.text)
             subid=trans.find('cim:Equipment.EquipmentContainer',ns).attrib.get(ns['rdf']+'resource')
             transid=trans.attrib.get(ns['rdf']+'ID')            #ID of PowerTransformer
             #Add substation info
@@ -118,8 +100,6 @@ class Transformers(GridObjects):
                                 #Otherwise find busbar via breaker
                                 node[i].append(find_bus(self.grid,terminal))
                     i=i+1
-
-        self.df['Name']=names
         self.df['Substation']=subs
         self.df['HVRatedS']=rateds[0]
         self.df['HVRatedU']=ratedu[0]
@@ -141,20 +121,17 @@ class Lines(GridObjects):
         self.df=self.insert_linedata()
     
     def insert_linedata(self):
-        names=[]
         length=[]
         volt=[]
         node=[]
-        pars=[[],[]]
+        # pars=[[],[]]
         for line in self.line_list:
             lineid=line.attrib.get(ns['rdf']+'ID')  
             #Collect line data
-            name=line.find('cim:IdentifiedObject.name',ns)
-            names.append(name.text)
             l=line.find('cim:Conductor.length',ns).text
             length.append(l)
-            pars[0].append(float(line.find('cim:ACLineSegment.r0',ns).text)/float(l))
-            pars[1].append(float(line.find('cim:ACLineSegment.x0',ns).text)/float(l))
+            # pars[0].append(float(line.find('cim:ACLineSegment.r0',ns).text)/float(l))
+            # pars[1].append(float(line.find('cim:ACLineSegment.x0',ns).text)/float(l))
             #Find voltage levels
             for bv in self.grid.findall('cim:BaseVoltage',ns):
                 if line.find('cim:ConductingEquipment.BaseVoltage',ns).attrib.get(ns['rdf']+'resource') == '#' + bv.attrib.get(ns['rdf']+'ID'):
@@ -169,14 +146,12 @@ class Lines(GridObjects):
                     else:
                         #Find busbar via breaker
                         node.append(find_bus(self.grid,terminal))
-                        
-        self.df['Name']=names
         self.df['Length']=length
         self.df['VoltageLevel']=volt
         self.df['Node1']=node[::2]
         self.df['Node2']=node[1::2]
-        self.df['r0/km']=pars[0]
-        self.df['x0/km']=pars[1]
+        # self.df['r0/km']=pars[0]
+        # self.df['x0/km']=pars[1]
         return self.df
         
     def get_df(self):
