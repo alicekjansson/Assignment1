@@ -34,16 +34,17 @@ class GridNodeObjects:
         self.df['connection']=self.connect
         
     def find_bus_connection(self, buses):
+        
         bus_name_list = []
-        for item in self.df['connection']:
-            bus_row = buses.df.loc[buses.df['connection'] == item
+        for item in self.df['connection']: 
+            bus_row = buses.df.loc[buses.df['connection'] == item]
             
-            bus_name_list.append(bus_row['name'])
-
-        #self.df['bus_connection'] = bus_name_list
+            if bus_row.empty is False:
+                bus_name_list.append(bus_row['name'].values[0])
+            else:
+                bus_name_list.append(False)
+        self.df['bus_connection'] = bus_name_list
             
-        
-        
         
 class Buses(GridNodeObjects):
     
@@ -94,9 +95,6 @@ ns = {'cim':'http://iec.ch/TC57/2013/CIM-schema-cim16#',
 buses = Buses(eq,ssh,ns)
 loads = Loads(eq,ssh,ns)
 gens = Generators(eq,ssh,ns)
-
-
-
 
 buses.get_cim_connectivity()
 loads.get_cim_connectivity()
