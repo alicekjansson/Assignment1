@@ -36,11 +36,8 @@ class GridNodeObjects:
     def find_bus_connection(self, buses):
         
         bus_name_list = []
-<<<<<<< HEAD
         for item in self.df['connection']: 
-=======
-        for item in self.df['connection']:
->>>>>>> 914162a64ba0b65e426875cc2a2cc55ee7622f83
+
             bus_row = buses.df.loc[buses.df['connection'] == item]
             
             if bus_row.empty is False:
