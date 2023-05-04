@@ -8,7 +8,6 @@ import pandas as pd
 import pandapower as pp
 import xml.etree.ElementTree as ET
 
-
 class GridNodeObjects:
     
     def __init__(self,eq,ssh,ns,element_type):
@@ -43,11 +42,10 @@ class GridNodeObjects:
             else:
                 for terminal in self.grid.findall('cim:Terminal',ns):
                     if terminal.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource') == item:
-                        print('ok')
+                        print('function!')
                 bus_name_list.append(False)
         self.df['bus_connection'] = bus_name_list
         
-            
         
 class Buses(GridNodeObjects):
     
@@ -77,7 +75,7 @@ class Loads(GridNodeObjects):
     def __init__(self, eq, ssh, ns, element_type = "EnergyConsumer"):
         super().__init__(eq, ssh, ns, element_type)
         
-        load_power =[]
+        load_power = []
         for load_id in self.df['ID']:   
             for element in self.ldf.findall('cim:'+element_type,ns):
                 if '#' + load_id  == element.attrib.get(ns['rdf']+'about'):
@@ -97,7 +95,7 @@ class Generators(GridNodeObjects):
     def __init__(self,eq,ssh,ns, element_type = "SynchronousMachine"):
         super().__init__(eq, ssh, ns, element_type)
         
-        gen_power =[]
+        gen_power = []
         for gen_id in self.df['ID']:   
             for element in self.ldf.findall('cim:'+element_type,ns):
                 if '#' + gen_id  == element.attrib.get(ns['rdf']+'about'):
@@ -111,6 +109,12 @@ class Generators(GridNodeObjects):
                 bus = pp.get_element_index(net, "bus", bus_name)
                 pp.create_gen(net, bus, active_power, name =gen_name)
         
+class Lines(GridNodeObjects):
+    
+    def __init__(self, eq, ssh, ns, element_type = "ACLineSegment"):
+        super().__init__(eq, ssh, ns, element_type)
+
+
              
 
 #eq = ET.parse('MicroGridTestConfiguration_T1_NL_EQ_V2.xml')
@@ -127,6 +131,7 @@ ns = {'cim':'http://iec.ch/TC57/2013/CIM-schema-cim16#',
 buses = Buses(eq,ssh,ns)
 loads = Loads(eq,ssh,ns)
 gens = Generators(eq,ssh,ns)
+lines = Lines(eq,ssh,ns)
 
 buses.get_cim_connectivity()
 loads.get_cim_connectivity()
