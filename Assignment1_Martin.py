@@ -36,7 +36,7 @@ class GridNodeObjects:
     def find_bus_connection(self, buses):
         bus_name_list = []
         for item in self.df['connection']:
-            bus_row = buses.df.loc[buses.df['connection'] == item
+            bus_row = buses.df.loc[buses.df['connection'] == item]
             
             bus_name_list.append(bus_row['name'])
 
