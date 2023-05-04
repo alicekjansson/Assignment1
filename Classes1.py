@@ -114,9 +114,8 @@ class Transformers(GridObjects):
                             #Check if the connectivitynode is for a busbar
                             if 'Busbar' in nodename:
                                 node[i].append(nodename)
-                            #Otherwise terminal = transformer terminal
-                            #Need to find busbar via breaker
                             else:
+                                #Otherwise find busbar via breaker
                                 node[i].append(find_bus(self.grid,terminal))
                     i=i+1
 
@@ -168,6 +167,7 @@ class Lines(GridObjects):
                     if 'Busbar' in nodename:
                         node.append(nodename)
                     else:
+                        #Find busbar via breaker
                         node.append(find_bus(self.grid,terminal))
                         
         self.df['Name']=names
