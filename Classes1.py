@@ -6,7 +6,7 @@ Created on Mon Apr 24 11:09:05 2023
 """
 import pandas as pd
 import xml.etree.ElementTree as ET
-from functions import get_node
+from functions import get_node, node_id
 
 
 class GridObjects:
@@ -20,6 +20,17 @@ class GridObjects:
         self.df=pd.DataFrame()
         self.list=self.grid.findall('cim:'+element_type,ns)
         self.df['ID']=[element.attrib.get(ns['rdf']+'ID') for element in self.list]
+        
+        def find_bus_connection(self, buses):
+            bus_name_list = []
+            for item in self.df['connection']: 
+                bus_row = buses.df.loc[buses.df['connection'] == item]
+                if bus_row.empty is False:
+                    bus_name_list.append(bus_row['name'].values[0])
+                else:
+                    bus_name_list.append(False)
+            self.df['bus_connection'] = bus_name_list
+        
         
         
 class Buses(GridObjects):
@@ -76,7 +87,6 @@ class Transformers(GridObjects):
     def insert_transdata(self):
         names=[]
         subs=[]
-        term=[[],[]]
         node=[[],[]]
         rateds=[[],[]]
         ratedu=[[],[]]
@@ -98,8 +108,25 @@ class Transformers(GridObjects):
                     #Get data on terminals the transformer end is connected to
                     for terminal in self.grid.findall('cim:Terminal',ns):
                         if transend.find('cim:TransformerEnd.Terminal',ns).attrib.get(ns['rdf']+'resource') == "#" + terminal.attrib.get(ns['rdf']+'ID'):
-                            term[i].append(terminal.find('cim:IdentifiedObject.name',ns).text)
-                            node[i].append(get_node(self.grid,terminal))    
+                            nodename=(get_node(self.grid,terminal))  
+                            #Check if the connectivitynode is for a busbar
+                            if 'Busbar' in nodename:
+                                node[i].append(nodename)
+                            #Otherwise terminal = transformer terminal
+                            #Need to find busbar via breaker
+                            else:
+                                nodename,nodeid=node_id(self.grid,terminal)
+                                for terminal2 in self.grid.findall('cim:Terminal',ns):
+                                    terminal2id=terminal2.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource')
+                                    #Terminal2 = breaker terminal
+                                    if (nodeid == "#" + terminal2id) and ('Breaker' in nodename):
+                                        breakerid2=terminal2.find('cim:Terminal.ConductingEquipment',ns).attrib.get(ns['rdf']+'resource')
+                                        for terminal3 in self.grid.findall('cim:Terminal',ns):
+                                            terminal3id=terminal3.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource')
+                                            breakerid3=terminal3.find('cim:Terminal.ConductingEquipment',ns).attrib.get(ns['rdf']+'resource')
+                                            #Terminal3 = busbar terminal
+                                            if (terminal3id != terminal2id) and (breakerid2 == breakerid3):
+                                                node[i].append(get_node(self.grid,terminal3))
                     i=i+1
 
         self.df['Name']=names
@@ -108,8 +135,6 @@ class Transformers(GridObjects):
         self.df['HVRatedU']=ratedu[0]
         self.df['LVRatedS']=rateds[1]
         self.df['LVRatedU']=ratedu[1]
-        self.df['HVTerminal']=term[0]
-        self.df['LVTerminal']=term[1]
         self.df['HVNode']=node[0]
         self.df['LVNode']=node[1]
 
@@ -120,7 +145,7 @@ class Transformers(GridObjects):
 
 class Lines(GridObjects):
     
-    def __init__(self, eq, ssh, ns, element_type = "BusbarSection"):
+    def __init__(self, eq, ssh, ns, element_type = "ACLineSegment"):
         super().__init__(eq, ssh, ns, element_type)
         self.line_list=self.grid.findall('cim:ACLineSegment',ns)
         self.df=self.insert_linedata()
