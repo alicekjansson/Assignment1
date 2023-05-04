@@ -6,7 +6,7 @@ Created on Mon Apr 24 11:09:05 2023
 """
 import pandas as pd
 import xml.etree.ElementTree as ET
-from functions import get_node, node_id
+from functions import get_node, node_id, find_bus
 
 
 class GridObjects:
@@ -76,6 +76,8 @@ class Buses(GridObjects):
     
     def get_df(self):
         return self.df
+
+
     
 class Transformers(GridObjects):
     
@@ -115,22 +117,7 @@ class Transformers(GridObjects):
                             #Otherwise terminal = transformer terminal
                             #Need to find busbar via breaker
                             else:
-                                nodename,nodeid=node_id(self.grid,terminal)
-                                for terminal2 in self.grid.findall('cim:Terminal',ns):
-                                    node2id=terminal2.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource')
-                                    terminal2name=terminal2.find('cim:IdentifiedObject.name',ns).text
-                                    #Terminal2 = breaker terminal
-                                    # print(terminal2name)
-                                    if ('#'+nodeid == node2id) and ('Breaker' in terminal2name):
-                                        terminal2id=terminal2.attrib.get(ns['rdf']+'ID')
-                                        breakerid2=terminal2.find('cim:Terminal.ConductingEquipment',ns).attrib.get(ns['rdf']+'resource')
-                                        for terminal3 in self.grid.findall('cim:Terminal',ns):
-                                            terminal3id=terminal3.attrib.get(ns['rdf']+'ID')
-                                            breakerid3=terminal3.find('cim:Terminal.ConductingEquipment',ns).attrib.get(ns['rdf']+'resource')
-                                            #Terminal3 = busbar terminal
-                                            if (terminal3id != terminal2id) and (breakerid2 == breakerid3):
-                                                print('yes1')
-                                                node[i].append(get_node(self.grid,terminal3))
+                                node[i].append(find_bus(self.grid,terminal))
                     i=i+1
 
         self.df['Name']=names
@@ -158,7 +145,6 @@ class Lines(GridObjects):
         names=[]
         length=[]
         volt=[]
-        term=[]
         node=[]
         pars=[[],[]]
         for line in self.line_list:
@@ -177,13 +163,16 @@ class Lines(GridObjects):
             #Find connected terminals
             for terminal in self.grid.findall('cim:Terminal',ns):
                 if terminal.find('cim:Terminal.ConductingEquipment',ns).attrib.get(ns['rdf']+'resource') == "#" + lineid:
-                    term.append(terminal.find('cim:IdentifiedObject.name',ns).text)
-                    node.append(get_node(self.grid,terminal)) 
+                    #Check if the connectivitynode is for a busbar
+                    nodename=(get_node(self.grid,terminal))
+                    if 'Busbar' in nodename:
+                        node.append(nodename)
+                    else:
+                        node.append(find_bus(self.grid,terminal))
+                        
         self.df['Name']=names
         self.df['Length']=length
         self.df['VoltageLevel']=volt
-        self.df['Terminal1']=term[::2]      #Every other item in list is for the first terminal
-        self.df['Terminal2']=term[1::2]     #Every other item in list is for the second terminal
         self.df['Node1']=node[::2]
         self.df['Node2']=node[1::2]
         self.df['r0/km']=pars[0]
