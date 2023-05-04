@@ -117,15 +117,19 @@ class Transformers(GridObjects):
                             else:
                                 nodename,nodeid=node_id(self.grid,terminal)
                                 for terminal2 in self.grid.findall('cim:Terminal',ns):
-                                    terminal2id=terminal2.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource')
+                                    node2id=terminal2.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource')
+                                    terminal2name=terminal2.find('cim:IdentifiedObject.name',ns).text
                                     #Terminal2 = breaker terminal
-                                    if (nodeid == "#" + terminal2id) and ('Breaker' in nodename):
+                                    # print(terminal2name)
+                                    if ('#'+nodeid == node2id) and ('Breaker' in terminal2name):
+                                        terminal2id=terminal2.attrib.get(ns['rdf']+'ID')
                                         breakerid2=terminal2.find('cim:Terminal.ConductingEquipment',ns).attrib.get(ns['rdf']+'resource')
                                         for terminal3 in self.grid.findall('cim:Terminal',ns):
-                                            terminal3id=terminal3.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource')
+                                            terminal3id=terminal3.attrib.get(ns['rdf']+'ID')
                                             breakerid3=terminal3.find('cim:Terminal.ConductingEquipment',ns).attrib.get(ns['rdf']+'resource')
                                             #Terminal3 = busbar terminal
                                             if (terminal3id != terminal2id) and (breakerid2 == breakerid3):
+                                                print('yes1')
                                                 node[i].append(get_node(self.grid,terminal3))
                     i=i+1
 
