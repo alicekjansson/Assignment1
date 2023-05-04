@@ -15,10 +15,10 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 #Step 1: Parse XML files
-eq=ET.parse('Assignment_EQ_reduced.xml') 
-ssh=ET.parse('Assignment_SSH_reduced.xml') 
-# eq=ET.parse('MicroGridTestConfiguration_T1_NL_EQ_V2.xml') 
-# ssh=ET.parse('MicroGridTestConfiguration_T1_NL_SSH_V2.xml') 
+# eq=ET.parse('Assignment_EQ_reduced.xml') 
+# ssh=ET.parse('Assignment_SSH_reduced.xml') 
+eq=ET.parse('MicroGridTestConfiguration_T1_NL_EQ_V2.xml') 
+ssh=ET.parse('MicroGridTestConfiguration_T1_NL_SSH_V2.xml') 
 ns=ns = {'cim':'http://iec.ch/TC57/2013/CIM-schema-cim16#',
       'entsoe':'http://entsoe.eu/CIM/SchemaExtension/3/1#',
       'rdf':'{http://www.w3.org/1999/02/22-rdf-syntax-ns#}',

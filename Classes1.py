@@ -76,7 +76,6 @@ class Transformers(GridObjects):
         rateds=[[],[]]
         ratedu=[[],[]]
         for trans in self.trans_list:
-            bus_exists=True
             subid=trans.find('cim:Equipment.EquipmentContainer',ns).attrib.get(ns['rdf']+'resource')
             transid=trans.attrib.get(ns['rdf']+'ID')            #ID of PowerTransformer
             #Add data about two sides of transformer
@@ -92,22 +91,18 @@ class Transformers(GridObjects):
                                 node[i].append(nodename)
                             else:
                                 #Otherwise find busbar via breaker
-                                tempnode=find_bus(self.grid,terminal)
-                                if tempnode == 'NoBus':
-                                    bus_exists=False
-                                else:
-                                    node[i].append(tempnode)
-                    if bus_exists==True:
-                        rateds[i].append(transend.find('cim:PowerTransformerEnd.ratedS',ns).text)
-                        ratedu[i].append(transend.find('cim:PowerTransformerEnd.ratedU',ns).text)
+                                node[i].append(find_bus(self.grid,terminal))
+
+                    rateds[i].append(transend.find('cim:PowerTransformerEnd.ratedS',ns).text)
+                    ratedu[i].append(transend.find('cim:PowerTransformerEnd.ratedU',ns).text)
                     i=i+1
-            if bus_exists==True:
-                #Add substation info
-                for sub in self.grid.findall('cim:Substation',ns):
-                    if subid == '#' + sub.attrib.get(ns['rdf']+'ID'):
-                        substation=sub.find('cim:IdentifiedObject.name',ns).text
-                subs.append(substation)
-                self.name.append(trans.find('cim:IdentifiedObject.name',ns).text)    
+
+            #Add substation info
+            for sub in self.grid.findall('cim:Substation',ns):
+                if subid == '#' + sub.attrib.get(ns['rdf']+'ID'):
+                    substation=sub.find('cim:IdentifiedObject.name',ns).text
+            subs.append(substation)
+            self.name.append(trans.find('cim:IdentifiedObject.name',ns).text)    
             
         self.df['Name']=self.name
         self.df['Substation']=subs
@@ -132,7 +127,6 @@ class Lines(GridObjects):
         volt=[]
         node=[]
         for line in self.line_list:
-            bus_exists=True
             lineid=line.attrib.get(ns['rdf']+'ID')       
             #Find connected terminals
             for terminal in self.grid.findall('cim:Terminal',ns):
@@ -143,23 +137,18 @@ class Lines(GridObjects):
                         node.append(nodename)
                     else:
                         #Find busbar via breaker
-                        tempnode=find_bus(self.grid,terminal)
-                        if tempnode == 'NoBus':
-                            bus_exists=False
-                        else:
-                            node.append(tempnode)
-            if bus_exists==True:
-                #Collect line data
-                l=line.find('cim:Conductor.length',ns).text
-                #Find voltage levels
-                for bv in self.grid.findall('cim:BaseVoltage',ns):
-                    if line.find('cim:ConductingEquipment.BaseVoltage',ns).attrib.get(ns['rdf']+'resource') == '#' + bv.attrib.get(ns['rdf']+'ID'):
-                        voltage=bv.find('cim:IdentifiedObject.name',ns).text 
-                    else:
-                        voltage='None'
-                volt.append(voltage)
-                length.append(l)
-                self.name.append(line.find('cim:IdentifiedObject.name',ns).text)
+                        node.append(find_bus(self.grid,terminal))
+            #Collect line data
+            l=line.find('cim:Conductor.length',ns).text
+            #Find voltage levels
+            for bv in self.grid.findall('cim:BaseVoltage',ns):
+                if line.find('cim:ConductingEquipment.BaseVoltage',ns).attrib.get(ns['rdf']+'resource') == '#' + bv.attrib.get(ns['rdf']+'ID'):
+                    voltage=bv.find('cim:IdentifiedObject.name',ns).text 
+                else:
+                    voltage='None'
+            volt.append(voltage)
+            length.append(l)
+            self.name.append(line.find('cim:IdentifiedObject.name',ns).text)
         self.df['Name']=self.name
         self.df['Length']=length
         self.df['VoltageLevel']=volt
