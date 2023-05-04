@@ -6,7 +6,7 @@ Created on Mon Apr 24 11:09:05 2023
 """
 import pandas as pd
 import xml.etree.ElementTree as ET
-from functions import get_node, node_id, find_bus
+from functions import get_node, find_bus
 
 
 class GridObjects:
@@ -19,8 +19,10 @@ class GridObjects:
         self.ldf=ssh.getroot()
         self.df=pd.DataFrame()
         self.list=self.grid.findall('cim:'+element_type,ns)
-        self.df['ID']=[element.attrib.get(ns['rdf']+'ID') for element in self.list]
-        self.df['Name']=[bus.find('cim:IdentifiedObject.name',ns).text for bus in self.list]
+        self.name=[]
+        
+    def get_df(self):
+        return self.df
         
 class Buses(GridObjects):
     
@@ -28,12 +30,10 @@ class Buses(GridObjects):
         super().__init__(eq, ssh, ns, element_type)
         self.bus_list=self.grid.findall('cim:BusbarSection',ns)
         self.df=self.insert_busdata()
-        # self.df['InService']=[True for el in range(len(self.bus_list))]       #Solve this eventually from SSH?
-        self.df['Type']=['b' for el in range(len(self.bus_list))]
         
     def insert_busdata(self):
         voltages=[[],[],[]]
-        connections=[[],[]]
+        connections=[]
         #Iterate through all buses and collect data
         for bus in self.bus_list:
             con=bus.find('cim:Equipment.EquipmentContainer',ns)
@@ -47,20 +47,19 @@ class Buses(GridObjects):
             #Iterate through terminals (and connectivitynodes) to find where bus is connected
             for terminal in self.grid.findall('cim:Terminal',ns):
                 if terminal.find('cim:Terminal.ConductingEquipment',ns).attrib.get(ns['rdf']+'resource') == "#" + id1:
-                    connections[0].append(terminal.find('cim:IdentifiedObject.name',ns).text)
-                    connections[1].append(get_node(self.grid,terminal))
+                    connections.append(get_node(self.grid,terminal))
                             
-        #Add data to dataframe               
+        #Add data to dataframe    
+        self.df['ID']=[element.attrib.get(ns['rdf']+'ID') for element in self.list]
+        self.df['Name']=[bus.find('cim:IdentifiedObject.name',ns).text for bus in self.list]           
         self.df['ipMax']=[(bus.find('cim:BusbarSection.ipMax',ns).text) for bus in self.bus_list]
         self.df['lowVoltageLimit']=voltages[0]
         self.df['VoltageLevel']=voltages[1]
         self.df['highVoltageLimit']=voltages[2]
-        self.df['Node']=connections[1]
-        self.df['Terminal']=connections[0]
+        self.df['Node']=connections
         return self.df
     
-    def get_df(self):
-        return self.df
+
 
 
     
@@ -77,18 +76,13 @@ class Transformers(GridObjects):
         rateds=[[],[]]
         ratedu=[[],[]]
         for trans in self.trans_list:
+            bus_exists=True
             subid=trans.find('cim:Equipment.EquipmentContainer',ns).attrib.get(ns['rdf']+'resource')
             transid=trans.attrib.get(ns['rdf']+'ID')            #ID of PowerTransformer
-            #Add substation info
-            for sub in self.grid.findall('cim:Substation',ns):
-                if subid == '#' + sub.attrib.get(ns['rdf']+'ID'):
-                    subs.append(sub.find('cim:IdentifiedObject.name',ns).text)
             #Add data about two sides of transformer
             i=0     #Keep track of which side of transformer
             for transend in self.grid.findall('cim:PowerTransformerEnd',ns):
                 if '#' + transid == transend.find('cim:PowerTransformerEnd.PowerTransformer',ns).attrib.get(ns['rdf']+'resource'):
-                    rateds[i].append(transend.find('cim:PowerTransformerEnd.ratedS',ns).text)
-                    ratedu[i].append(transend.find('cim:PowerTransformerEnd.ratedU',ns).text)
                     #Get data on terminals the transformer end is connected to
                     for terminal in self.grid.findall('cim:Terminal',ns):
                         if transend.find('cim:TransformerEnd.Terminal',ns).attrib.get(ns['rdf']+'resource') == "#" + terminal.attrib.get(ns['rdf']+'ID'):
@@ -98,8 +92,24 @@ class Transformers(GridObjects):
                                 node[i].append(nodename)
                             else:
                                 #Otherwise find busbar via breaker
-                                node[i].append(find_bus(self.grid,terminal))
+                                tempnode=find_bus(self.grid,terminal)
+                                if tempnode == 'NoBus':
+                                    bus_exists=False
+                                else:
+                                    node[i].append(tempnode)
+                    if bus_exists==True:
+                        rateds[i].append(transend.find('cim:PowerTransformerEnd.ratedS',ns).text)
+                        ratedu[i].append(transend.find('cim:PowerTransformerEnd.ratedU',ns).text)
                     i=i+1
+            if bus_exists==True:
+                #Add substation info
+                for sub in self.grid.findall('cim:Substation',ns):
+                    if subid == '#' + sub.attrib.get(ns['rdf']+'ID'):
+                        substation=sub.find('cim:IdentifiedObject.name',ns).text
+                subs.append(substation)
+                self.name.append(trans.find('cim:IdentifiedObject.name',ns).text)    
+            
+        self.df['Name']=self.name
         self.df['Substation']=subs
         self.df['HVRatedS']=rateds[0]
         self.df['HVRatedU']=ratedu[0]
@@ -108,9 +118,6 @@ class Transformers(GridObjects):
         self.df['HVNode']=node[0]
         self.df['LVNode']=node[1]
 
-        return self.df
-    
-    def get_df(self):
         return self.df
 
 class Lines(GridObjects):
@@ -124,18 +131,9 @@ class Lines(GridObjects):
         length=[]
         volt=[]
         node=[]
-        # pars=[[],[]]
         for line in self.line_list:
-            lineid=line.attrib.get(ns['rdf']+'ID')  
-            #Collect line data
-            l=line.find('cim:Conductor.length',ns).text
-            length.append(l)
-            # pars[0].append(float(line.find('cim:ACLineSegment.r0',ns).text)/float(l))
-            # pars[1].append(float(line.find('cim:ACLineSegment.x0',ns).text)/float(l))
-            #Find voltage levels
-            for bv in self.grid.findall('cim:BaseVoltage',ns):
-                if line.find('cim:ConductingEquipment.BaseVoltage',ns).attrib.get(ns['rdf']+'resource') == '#' + bv.attrib.get(ns['rdf']+'ID'):
-                    volt.append(bv.find('cim:IdentifiedObject.name',ns).text)
+            bus_exists=True
+            lineid=line.attrib.get(ns['rdf']+'ID')       
             #Find connected terminals
             for terminal in self.grid.findall('cim:Terminal',ns):
                 if terminal.find('cim:Terminal.ConductingEquipment',ns).attrib.get(ns['rdf']+'resource') == "#" + lineid:
@@ -145,21 +143,35 @@ class Lines(GridObjects):
                         node.append(nodename)
                     else:
                         #Find busbar via breaker
-                        node.append(find_bus(self.grid,terminal))
+                        tempnode=find_bus(self.grid,terminal)
+                        if tempnode == 'NoBus':
+                            bus_exists=False
+                        else:
+                            node.append(tempnode)
+            if bus_exists==True:
+                #Collect line data
+                l=line.find('cim:Conductor.length',ns).text
+                #Find voltage levels
+                for bv in self.grid.findall('cim:BaseVoltage',ns):
+                    if line.find('cim:ConductingEquipment.BaseVoltage',ns).attrib.get(ns['rdf']+'resource') == '#' + bv.attrib.get(ns['rdf']+'ID'):
+                        voltage=bv.find('cim:IdentifiedObject.name',ns).text 
+                    else:
+                        voltage='None'
+                volt.append(voltage)
+                length.append(l)
+                self.name.append(line.find('cim:IdentifiedObject.name',ns).text)
+        self.df['Name']=self.name
         self.df['Length']=length
         self.df['VoltageLevel']=volt
         self.df['Node1']=node[::2]
         self.df['Node2']=node[1::2]
-        # self.df['r0/km']=pars[0]
-        # self.df['x0/km']=pars[1]
-        return self.df
-        
-    def get_df(self):
         return self.df
 
 #Step 1: Parse XML files
-eq=ET.parse('Assignment_EQ_reduced.xml') 
-ssh=ET.parse('Assignment_SSH_reduced.xml') 
+# eq=ET.parse('Assignment_EQ_reduced.xml') 
+# ssh=ET.parse('Assignment_SSH_reduced.xml') 
+eq=ET.parse('MicroGridTestConfiguration_T1_NL_EQ_V2.xml') 
+ssh=ET.parse('MicroGridTestConfiguration_T1_NL_SSH_V2.xml') 
 ns=ns = {'cim':'http://iec.ch/TC57/2013/CIM-schema-cim16#',
       'entsoe':'http://entsoe.eu/CIM/SchemaExtension/3/1#',
       'rdf':'{http://www.w3.org/1999/02/22-rdf-syntax-ns#}',
@@ -173,10 +185,4 @@ df_trans=transformers.get_df()
 lines=Lines(eq,ssh,ns)
 df_lines=lines.get_df()
 
-  
-#This is maybe??
-# class Shunts(GridObjects):
-    
-#     def __init__(self, eq, ssh, ns, element_type = "BusbarSection"):
-#         super().__init__(eq, ssh, ns, element_type)
     

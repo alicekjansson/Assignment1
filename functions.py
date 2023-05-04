@@ -17,14 +17,22 @@ def get_node(grid,terminal):
     for cn in grid.findall('cim:ConnectivityNode',ns):
         if terminal.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource') == "#" + cn.attrib.get(ns['rdf']+'ID'):
             node=cn.find('cim:IdentifiedObject.name',ns)
-    return node.text
+            return node.text
+        else:       
+            temp= 'NoBus'
+    #If there is no bus
+    return temp
 
 def node_id(grid,terminal):
     for cn in grid.findall('cim:ConnectivityNode',ns):
         if terminal.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource') == "#" + cn.attrib.get(ns['rdf']+'ID'):
             nodename=cn.find('cim:IdentifiedObject.name',ns)
             nodeid=cn.attrib.get(ns['rdf']+'ID')
-    return nodename.text,nodeid
+            return nodename.text,nodeid
+        else:
+            temp= ('NoBus','NoBus')
+    #If there is no bus
+    return temp
 
 def find_bus(grid,terminal):
     nodename,nodeid=node_id(grid,terminal)
