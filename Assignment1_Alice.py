@@ -24,11 +24,16 @@ ns=ns = {'cim':'http://iec.ch/TC57/2013/CIM-schema-cim16#',
 
 #Step 2: Create internal datastructures
 df_buses=Buses(eq,ssh,ns).get_df()
-df_transformers=Transformers(eq,ssh,ns).get_df()
+df_trans=Transformers(eq,ssh,ns).get_df()
 df_lines=Lines(eq,ssh,ns).get_df()
 
 #Step 3: Create pandapower objects
 net=pp.create_empty_network()
-bus_id=[]
 for i,cimbus in df_buses.transpose().items():
-    bus=pp.create_bus(net,vn_kv=cimbus['VoltageLevel'],name=cimbus['Name'])
+    pp.create_bus(net,vn_kv=cimbus['VoltageLevel'],name=cimbus['Name'])
+for i,cimtrf in df_trans.transpose().items():
+    pp.create_transformer(net,cimtrf['HVTerminal'],cimtrf['LVTerminal'],std_type=,name=cimtrf['Name'])  
+
+#OBS how to choose standard type??
+# for i,cimline in df_lines.transpose().items():
+#     pp.create_line(net, cimline['Terminal1'], cimline['Terminal2'], float(cimline['Length']) ,std_type='184-AL1/30-ST1A 20.0', name=cimline['Name'])

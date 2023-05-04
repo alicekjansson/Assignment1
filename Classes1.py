@@ -139,8 +139,8 @@ class Lines(GridObjects):
             names.append(name.text)
             l=line.find('cim:Conductor.length',ns).text
             length.append(l)
-            pars[0].append(float(line.find('cim:ACLineSegment.r',ns).text)/float(l))
-            pars[1].append(float(line.find('cim:ACLineSegment.x',ns).text)/float(l))
+            pars[0].append(float(line.find('cim:ACLineSegment.r0',ns).text)/float(l))
+            pars[1].append(float(line.find('cim:ACLineSegment.x0',ns).text)/float(l))
             #Find voltage levels
             for bv in self.grid.findall('cim:BaseVoltage',ns):
                 if line.find('cim:ConductingEquipment.BaseVoltage',ns).attrib.get(ns['rdf']+'resource') == '#' + bv.attrib.get(ns['rdf']+'ID'):
@@ -157,8 +157,8 @@ class Lines(GridObjects):
         self.df['Terminal2']=term[1::2]     #Every other item in list is for the second terminal
         self.df['Node1']=node[::2]
         self.df['Node2']=node[1::2]
-        self.df['r/km']=pars[0]
-        self.df['x/km']=pars[1]
+        self.df['r0/km']=pars[0]
+        self.df['x0/km']=pars[1]
         return self.df
         
     def get_df(self):
