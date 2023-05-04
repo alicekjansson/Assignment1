@@ -33,6 +33,16 @@ class GridNodeObjects:
         self.df['name']=self.name
         self.df['connection']=self.connect
         
+    def find_bus_connection(self, buses):
+        bus_name_list = []
+        for item in self.df['connection']:
+            bus_row = buses.df.loc[buses.df['connection'] == item
+            
+            bus_name_list.append(bus_row['name'])
+
+        #self.df['bus_connection'] = bus_name_list
+            
+        
         
         
 class Buses(GridNodeObjects):
@@ -52,34 +62,19 @@ class Buses(GridNodeObjects):
         self.df['voltage'] = self.voltage_lvl
         
 
+    def create_pp_bus(self, net):
+        for bus_name, bus_voltage in zip(self.df['name'], self.df['voltage']):  
+            pp.create_bus(net, name=bus_name,vn_kv=bus_voltage)
+                               
+        #self.df.apply(lambda row: pp.create_bus(net, name=row['name'],vn_kv=row['voltage']),axis=1)
 
-        
-        
-    def create_pp_object(self, net):
-        bus_list = []
-       
-        bus_list.append(self.df.apply(lambda row: pp.create_bus(net, name=row['name'],vn_kv=row['voltage']),axis=1))
-        print(bus_list[0])
-       
-   
-
-        
 
 class Loads(GridNodeObjects):
     
     def __init__(self, eq, ssh, ns, element_type = "EnergyConsumer"):
         super().__init__(eq, ssh, ns, element_type)
         
-        '''
-    def setup_pp_loads(self, net, buses):
-        
-        self.df.apply(lambda row: create_pp(self, net, buses, row),axis=1)
-        
-    def create_pp(self, net, buses, load):
-        bus = buses.df[buses.df['connection'] == load['connection']]
-        print(bus['name'])
-        #self.df.apply(lambda row: pp.create_load(net, bus, name=row['name']),axis=1)
-'''
+
     
 class Generators(GridNodeObjects):
     
@@ -101,21 +96,30 @@ loads = Loads(eq,ssh,ns)
 gens = Generators(eq,ssh,ns)
 
 
+
+
 buses.get_cim_connectivity()
 loads.get_cim_connectivity()
 gens.get_cim_connectivity()
 
+loads.find_bus_connection(buses)
+gens.find_bus_connection(buses)
+
 buses.get_cim_data()
 
 
-print(buses.df)
-print(loads.name)
-print(gens.name)
+
+#print(loads.name)
+#print(gens.name)
 
   
 net = pp.create_empty_network()
-buses.create_pp_object(net)
-print(net.bus) 
 
+
+buses.create_pp_bus(net)
+print(net.bus) 
+print(buses.df)
+print(loads.df)
+print(gens.df)
 
 
