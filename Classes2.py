@@ -1,13 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Apr 24 10:28:03 2023
+Created on Fri May  5 08:50:57 2023
 
-@author: ielmartin
+@author: Alice
 """
+
 import pandas as pd
 import pandapower as pp
 import pandapower.plotting as plot
 import xml.etree.ElementTree as ET
+from functions import get_node, find_bus
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 class GridNodeObjects:
@@ -25,6 +29,7 @@ class GridNodeObjects:
         
         self.df['ID']=[element.attrib.get(ns['rdf']+'ID') for element in self.list]
         self.df['name']=[element.find('cim:IdentifiedObject.name',ns).text for element in self.list]
+        self.get_cim_connectivity()
             
         
     def get_cim_connectivity(self):
@@ -86,16 +91,30 @@ class Buses(GridNodeObjects):
     
     def __init__(self, eq, ssh, ns, element_type = "BusbarSection"):
         super().__init__(eq, ssh, ns, element_type)
+        self.get_cim_data()
         
     def get_cim_data(self):
         voltage_lvl = []  
+        connections=[]
         for bus in self.list:
             container= bus.find('cim:Equipment.EquipmentContainer',ns)
+            #Iterate through voltagelevels to collect voltages
             for vl in self.grid.findall('cim:VoltageLevel',ns):
                 if container.attrib.get(ns['rdf']+'resource') == "#" + vl.attrib.get(ns['rdf']+'ID'):
                     voltage_lvl.append(vl.find('cim:IdentifiedObject.name',ns).text)
-        
+            id1=bus.attrib.get(ns['rdf']+'ID')
+            #Iterate through terminals (and connectivitynodes) to find where bus is connected
+            for terminal in self.grid.findall('cim:Terminal',ns):
+                if terminal.find('cim:Terminal.ConductingEquipment',ns).attrib.get(ns['rdf']+'resource') == "#" + id1:
+                    nodename=(get_node(self.grid,terminal))  
+                    #Check if the connectivitynode is for a busbar
+                    if 'Busbar' in nodename:
+                        connections.append(nodename)
+                    else:
+                        #Otherwise find busbar via breaker
+                        connections.append(find_bus(self.grid,terminal))
         self.df['voltage'] = voltage_lvl
+        self.df['Busbar']  = connections
         
 
     def create_pp_bus(self, net):
@@ -103,6 +122,7 @@ class Buses(GridNodeObjects):
             pp.create_bus(net, name=bus_name,vn_kv=bus_voltage)
                                
         #self.df.apply(lambda row: pp.create_bus(net, name=row['name'],vn_kv=row['voltage']),axis=1)
+        
 
 
 class Loads(GridNodeObjects):
@@ -148,20 +168,110 @@ class Lines(GridNodeObjects):
     
     def __init__(self, eq, ssh, ns, element_type = "ACLineSegment"):
         super().__init__(eq, ssh, ns, element_type)
-        
+        self.line_list=self.grid.findall('cim:ACLineSegment',ns)
+        self.df=self.insert_linedata()
+    
+    def insert_linedata(self):
         length=[]
-        for line in self.list:
+        volt=[]
+        node=[]
+        name=[]
+        for line in self.line_list:
+            lineid=line.attrib.get(ns['rdf']+'ID')       
+            #Find connected terminals
+            for terminal in self.grid.findall('cim:Terminal',ns):
+                if terminal.find('cim:Terminal.ConductingEquipment',ns).attrib.get(ns['rdf']+'resource') == "#" + lineid:
+                    #Check if the connectivitynode is for a busbar
+                    nodename=(get_node(self.grid,terminal))
+                    if 'Busbar' in nodename:
+                        node.append(nodename)
+                    else:
+                        #Find busbar via breaker
+                        node.append(find_bus(self.grid,terminal))
+            #Collect line data
             l=line.find('cim:Conductor.length',ns).text
+            #Find voltage levels
+            for bv in self.grid.findall('cim:BaseVoltage',ns):
+                if line.find('cim:ConductingEquipment.BaseVoltage',ns).attrib.get(ns['rdf']+'resource') == '#' + bv.attrib.get(ns['rdf']+'ID'):
+                    voltage=bv.find('cim:IdentifiedObject.name',ns).text 
+                else:
+                    voltage='None'
+            volt.append(voltage)
             length.append(l)
-        self.df['length']=length
-
+            name.append(line.find('cim:IdentifiedObject.name',ns).text)
+        self.df['Name']=name
+        self.df['Length']=length
+        self.df['VoltageLevel']=volt
+        self.df['Node1']=node[::2]
+        self.df['Node2']=node[1::2]
+        return self.df   
+    
     def create_pp_line(self, net):
-        for line_name, bus_name1, bus_name2, line_length in zip(self.df['name'],self.df['node1_bus'], self.df['node2_bus'], self.df['length']):
-            if bus_name1 is not False and bus_name2 is not False:
-                std_type="N2XS(FL)2Y 1x300 RM/35 64/110 kV"
-                bus1 = pp.get_element_index(net, "bus", bus_name1)
-                bus2 = pp.get_element_index(net, "bus", bus_name2)
-                pp.create_line(net, bus1, bus2, line_length, std_type, name =line_name)    
+        for line_name, bus1_name, bus2_name, length in zip(self.df['name'],self.df['Node1'],self.df['Node2'], self.df['Length']):
+            if ((bus1_name is not None) and (bus2_name is not None)):
+                bus1 = pp.get_element_index(net, "bus", bus1_name)
+                bus2=pp.get_element_index(net, "bus", bus2_name)
+                pp.create_line(net,bus1,bus2,length,'NAYY 4x50 SE',line_name)
+
+class Transformers(GridNodeObjects):
+    
+    def __init__(self, eq, ssh, ns, element_type = "PowerTransformer"):
+        super().__init__(eq, ssh, ns, element_type)
+        self.trans_list=self.grid.findall('cim:PowerTransformer',ns)
+        self.df=self.insert_transdata()
+        
+    def insert_transdata(self):
+        subs=[]
+        node=[[],[]]
+        rateds=[[],[]]
+        ratedu=[[],[]]
+        name=[]
+        for trans in self.trans_list:
+            subid=trans.find('cim:Equipment.EquipmentContainer',ns).attrib.get(ns['rdf']+'resource')
+            transid=trans.attrib.get(ns['rdf']+'ID')            #ID of PowerTransformer
+            #Add data about two sides of transformer
+            i=0     #Keep track of which side of transformer
+            for transend in self.grid.findall('cim:PowerTransformerEnd',ns):
+                if '#' + transid == transend.find('cim:PowerTransformerEnd.PowerTransformer',ns).attrib.get(ns['rdf']+'resource'):
+                    #Get data on terminals the transformer end is connected to
+                    for terminal in self.grid.findall('cim:Terminal',ns):
+                        if transend.find('cim:TransformerEnd.Terminal',ns).attrib.get(ns['rdf']+'resource') == "#" + terminal.attrib.get(ns['rdf']+'ID'):
+                            nodename=(get_node(self.grid,terminal))  
+                            #Check if the connectivitynode is for a busbar
+                            if 'Busbar' in nodename:
+                                node[i].append(nodename)
+                            else:
+                                #Otherwise find busbar via breaker
+                                node[i].append(find_bus(self.grid,terminal))
+
+                    rateds[i].append(transend.find('cim:PowerTransformerEnd.ratedS',ns).text)
+                    ratedu[i].append(transend.find('cim:PowerTransformerEnd.ratedU',ns).text)
+                    i=i+1
+
+            #Add substation info
+            for sub in self.grid.findall('cim:Substation',ns):
+                if subid == '#' + sub.attrib.get(ns['rdf']+'ID'):
+                    substation=sub.find('cim:IdentifiedObject.name',ns).text
+            subs.append(substation)
+            name.append(trans.find('cim:IdentifiedObject.name',ns).text)    
+            
+        self.df['Name']=name
+        self.df['Substation']=subs
+        self.df['HVRatedS']=rateds[0]
+        self.df['HVRatedU']=ratedu[0]
+        self.df['LVRatedS']=rateds[1]
+        self.df['LVRatedU']=ratedu[1]
+        self.df['HVNode']=node[0]
+        self.df['LVNode']=node[1]
+
+        return self.df
+    
+    def create_pp_trans(self, net):
+        for trans_name, bus1_name, bus2_name in zip(self.df['name'],self.df['HVNode'],self.df['LVNode']):
+            if ((bus1_name is not None) and (bus2_name is not None)):
+                bus1 = pp.get_element_index(net, "bus", bus1_name)
+                bus2=pp.get_element_index(net, "bus", bus2_name)
+                pp.create_line(net,bus1,bus2,'25 MVA 110/20 kV',trans_name)
 
 eq = ET.parse('MicroGridTestConfiguration_T1_NL_EQ_V2.xml')
 ssh = ET.parse('MicroGridTestConfiguration_T1_NL_SSH_V2.xml')
@@ -178,34 +288,26 @@ ns = {'cim':'http://iec.ch/TC57/2013/CIM-schema-cim16#',
 net = pp.create_empty_network()
 
 buses = Buses(eq,ssh,ns)
-buses.get_cim_connectivity()
-buses.get_cim_data()
+df_buses=buses.df
 buses.create_pp_bus(net)
 
 loads = Loads(eq,ssh,ns)
-loads.get_cim_connectivity()
 loads.find_bus_connection(buses)
 loads.create_pp_load(net)
 
 gens = Generators(eq,ssh,ns)
-gens.get_cim_connectivity()
 gens.find_bus_connection(buses)
 gens.create_pp_gen(net)
 
 lines = Lines(eq,ssh,ns)
-lines.get_cim_connectivity()
-lines.find_bus_connection(buses)
-lines.find_bus_connection(buses,'node2')
+df_line=lines.df
 lines.create_pp_line(net)
 
-print(buses.df)
-#print(loads.df)
-#print(gens.df)
-print(lines.df)
+trans=Transformers(eq,ssh,ns)
+df_trans=trans.df
+trans.create_pp_trans(net)
 
-#print(net.bus) 
-#print(net.load) 
-#print(net.gen)
 
+
+    
 plot.simple_plot(net)
-

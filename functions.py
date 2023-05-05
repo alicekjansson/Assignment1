@@ -41,7 +41,7 @@ def find_bus(grid,terminal):
         terminal2name=terminal2.find('cim:IdentifiedObject.name',ns).text
         #Terminal2 = breaker terminal
         # Find terminal at same connectivitynode which has a breaker
-        if ('#'+nodeid == node2id) and (('Breaker' in terminal2name) or 'CIRCB' in terminal2name):
+        if ('#'+nodeid == node2id) and (('Breaker' in terminal2name) or ('CIRCB' in terminal2name) or ('BREAKER' in terminal2name)):
             terminal2id=terminal2.attrib.get(ns['rdf']+'ID')
             breakerid2=terminal2.find('cim:Terminal.ConductingEquipment',ns).attrib.get(ns['rdf']+'resource')
             for terminal3 in grid.findall('cim:Terminal',ns):
@@ -51,3 +51,7 @@ def find_bus(grid,terminal):
                 #Find terminal with the same breaker, this is busbar terminal
                 if (terminal3id != terminal2id) and (breakerid2 == breakerid3):
                     return get_node(grid,terminal3)
+                
+                
+                
+    
