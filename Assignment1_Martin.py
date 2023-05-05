@@ -53,7 +53,7 @@ class GridNodeObjects:
                 bus_name_list.append(bus_row['name'].values[0])
             else:
                 n = 0
-                iter_max = 10
+                iter_max = 100
                 while n < iter_max:
                     new_node = self.bus_search(node)
                     bus_row = buses.df.loc[buses.df['node1'] == new_node]
@@ -72,6 +72,7 @@ class GridNodeObjects:
     def bus_search(self, node):
         for terminal in self.grid.findall('cim:Terminal',ns):
             if terminal.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource') == node:
+            
                         cond_equip = terminal.find('cim:Terminal.ConductingEquipment',ns).attrib.get(ns['rdf']+'resource')
                         for terminal in self.grid.findall('cim:Terminal',ns):
                             if terminal.find('cim:Terminal.ConductingEquipment',ns).attrib.get(ns['rdf']+'resource') == cond_equip:
@@ -163,10 +164,10 @@ class Lines(GridNodeObjects):
                 bus2 = pp.get_element_index(net, "bus", bus_name2)
                 pp.create_line(net, bus1, bus2, line_length, std_type, name =line_name)    
 
-#eq = ET.parse('MicroGridTestConfiguration_T1_NL_EQ_V2.xml')
-#ssh = ET.parse('MicroGridTestConfiguration_T1_NL_SSH_V2.xml')
-eq = ET.parse('Assignment_EQ_reduced.xml')
-ssh = ET.parse('Assignment_SSH_reduced.xml')
+eq = ET.parse('MicroGridTestConfiguration_T1_NL_EQ_V2.xml')
+ssh = ET.parse('MicroGridTestConfiguration_T1_NL_SSH_V2.xml')
+#eq = ET.parse('Assignment_EQ_reduced.xml')
+#ssh = ET.parse('Assignment_SSH_reduced.xml')
 
 
 ns = {'cim':'http://iec.ch/TC57/2013/CIM-schema-cim16#',
@@ -207,5 +208,5 @@ print(lines.df)
 #print(net.load) 
 #print(net.gen)
 
-plot.simple_plot(net)
+#plot.simple_plot(net)
 
