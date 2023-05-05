@@ -16,7 +16,7 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import pandapower.plotting as plot
 
-#Step 1: Parse XML files
+#Step 1: Parse XML files (choose reduced or microgrid)
 eq = ET.parse('MicroGridTestConfiguration_T1_NL_EQ_V2.xml')
 ssh = ET.parse('MicroGridTestConfiguration_T1_NL_SSH_V2.xml')
 # eq = ET.parse('Assignment_EQ_reduced.xml')
