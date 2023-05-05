@@ -266,12 +266,13 @@ class Transformers(GridNodeObjects):
 
         return self.df
     
-    def create_pp_trans(self, net):
+    def create_pp_trans(self, net, buses):
+        buslist=list(buses.df['name'])
         for trans_name, bus1_name, bus2_name in zip(self.df['name'],self.df['HVNode'],self.df['LVNode']):
-            if ((bus1_name is not None) and (bus2_name is not None)):
+            if ((bus1_name in buslist) and (bus2_name in buslist)):
                 bus1 = pp.get_element_index(net, "bus", bus1_name)
                 bus2=pp.get_element_index(net, "bus", bus2_name)
-                pp.create_line(net,bus1,bus2,'25 MVA 110/20 kV',trans_name)
+                pp.create_transformer(net,bus1,bus2,'25 MVA 110/20 kV',trans_name)
 
 eq = ET.parse('MicroGridTestConfiguration_T1_NL_EQ_V2.xml')
 ssh = ET.parse('MicroGridTestConfiguration_T1_NL_SSH_V2.xml')
@@ -284,30 +285,28 @@ ns = {'cim':'http://iec.ch/TC57/2013/CIM-schema-cim16#',
       'rdf':'{http://www.w3.org/1999/02/22-rdf-syntax-ns#}',
       'md':"http://iec.ch/TC57/61970-552/ModelDescription/1#"}
 
-
+#Main: Create grid in Pandapower and plot
+#Start with creating empty network
 net = pp.create_empty_network()
-
+#Create buses
 buses = Buses(eq,ssh,ns)
 df_buses=buses.df
 buses.create_pp_bus(net)
-
+#Create loads
 loads = Loads(eq,ssh,ns)
 loads.find_bus_connection(buses)
 loads.create_pp_load(net)
-
+#Create generators
 gens = Generators(eq,ssh,ns)
 gens.find_bus_connection(buses)
 gens.create_pp_gen(net)
-
+#Create lines
 lines = Lines(eq,ssh,ns)
 df_line=lines.df
 lines.create_pp_line(net)
-
+#Create transformers
 trans=Transformers(eq,ssh,ns)
 df_trans=trans.df
-trans.create_pp_trans(net)
-
-
-
-    
+trans.create_pp_trans(net,buses)
+#Plot   
 plot.simple_plot(net)
