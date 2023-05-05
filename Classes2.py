@@ -83,9 +83,6 @@ class GridNodeObjects:
                                 if terminal.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource') != node:
                                     new_node = terminal.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource')
         return new_node                            
-                                    
-            
-
         
 class Buses(GridNodeObjects):
     
