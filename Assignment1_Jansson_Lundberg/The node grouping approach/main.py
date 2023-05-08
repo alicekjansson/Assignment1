@@ -15,8 +15,10 @@ from Classes import Buses, Lines,Transformers, Loads, Generators
 
 eq = ET.parse('MicroGridTestConfiguration_T1_NL_EQ_V2.xml')
 ssh = ET.parse('MicroGridTestConfiguration_T1_NL_SSH_V2.xml')
-#eq = ET.parse('Assignment_EQ_reduced.xml')
-#ssh = ET.parse('Assignment_SSH_reduced.xml')
+eq = ET.parse('Assignment_EQ_reduced.xml')
+ssh = ET.parse('Assignment_SSH_reduced.xml')
+eq = ET.parse('MicroGridTestConfiguration_T1_BE_EQ_V2-3.xml')         #Second version microgrid
+ssh = ET.parse('MicroGridTestConfiguration_T1_BE_SSH_V2.xml')       #Second version microgrid
 
 
 ns = {'cim':'http://iec.ch/TC57/2013/CIM-schema-cim16#',
@@ -29,6 +31,7 @@ ns = {'cim':'http://iec.ch/TC57/2013/CIM-schema-cim16#',
 buses = Buses(eq,ssh,ns)
 buses.get_cim_data()
 
+
 loads = Loads(eq,ssh,ns)
 loads.get_cim_connectivity()
 loads.find_bus_connection(buses)
@@ -37,6 +40,7 @@ loads.find_bus_connection(buses)
 gens = Generators(eq,ssh,ns)
 gens.get_cim_connectivity()
 gens.find_bus_connection(buses)
+
 
 lines = Lines(eq,ssh,ns)
 lines.get_cim_connectivity()
@@ -47,6 +51,11 @@ trafos = Transformers(eq,ssh,ns)
 trafos.get_cim_connectivity()
 trafos.find_bus_connection(buses)
 trafos.find_bus_connection(buses,'node2')
+
+trafos.find_bus_connection(buses,'node3')
+print(trafos.df)
+print(lines.df)
+print(buses.df)
 
 
 net = pp.create_empty_network()
