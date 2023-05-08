@@ -21,7 +21,7 @@ ns = {'cim':'http://iec.ch/TC57/2013/CIM-schema-cim16#',
 
 #The superclass for all grid objects is GridObjects
 class GridObjects:
-    
+    # Common class features, including component retrieving names and ids of grid objects
     def __init__(self,eq,ssh,ns,element_type):
         self.eq=eq
         self.ssh=ssh
@@ -40,7 +40,11 @@ class Buses(GridObjects):
     
     def __init__(self, eq, ssh, ns, element_type = "BusbarSection"):
         super().__init__(eq, ssh, ns, element_type)
+        # get necessary CIM data through function in Buses class
         self.get_cim_data()
+        
+        # get assiciated conectivity node through function in functions.py
+        # (necessary for using the load and generator classes)
         get_cim_connectivity(self)
 
     def get_cim_data(self):
@@ -76,41 +80,56 @@ class Loads(GridObjects):
     
     def __init__(self, eq, ssh, ns, element_type = "EnergyConsumer"):
         super().__init__(eq, ssh, ns, element_type)
+        # get assiciated conectivity node through function in functions.py
+        get_cim_connectivity(self)
         
+        # Find active power from CIM data and store in dataframe
         load_power = []
         for load_id in self.df['ID']:   
             for element in self.ldf.findall('cim:'+element_type,ns):
                 if '#' + load_id  == element.attrib.get(ns['rdf']+'about'):
                     load_power.append(element.find('cim:EnergyConsumer.p',ns).text)
         self.df['p']=load_power
-        get_cim_connectivity(self)
         
+        
+    # function to create pandapower load object
     def create_pp_load(self, net, buses):
+        # get assiciated bus conectivity node through function in functions.py
         find_bus_connection(self, buses)
+        # create pandapower objects from data stored in dataframe
         for load_name, bus_name, active_power in zip(self.df['name'],self.df['node1_bus'], self.df['p']):
-            if bus_name is not False:
+            if bus_name != False:
+                #get correct bus index from pandapower using bus name 
                 bus = pp.get_element_index(net, "bus", bus_name)
+                
                 pp.create_load(net, bus, active_power, name =load_name)
         
     
 class Generators(GridObjects):
-    
+    # Generators are found by the #SynchronousMachine attribute
     def __init__(self,eq,ssh,ns, element_type = "SynchronousMachine"):
         super().__init__(eq, ssh, ns, element_type)
+        # get assiciated conectivity node through function in functions.py
+        get_cim_connectivity(self)
         
+        # Find active power from CIM data and store in dataframe
         gen_power = []
         for gen_id in self.df['ID']:   
             for element in self.ldf.findall('cim:'+element_type,ns):
                 if '#' + gen_id  == element.attrib.get(ns['rdf']+'about'):
                     gen_power.append(element.find('cim:RotatingMachine.p',ns).text)
         self.df['p']=gen_power
-        get_cim_connectivity(self)
         
+    # function to create pandapower generator object    
     def create_pp_gen(self, net, buses):
+        # get assiciated bus conectivity node through function in functions.py
         find_bus_connection(self, buses)
+        # create pandapower objects from data stored in dataframe
         for gen_name, bus_name, active_power in zip(self.df['name'],self.df['node1_bus'], self.df['p']):
-            if bus_name is not False:
+            if bus_name != False:
+                #get correct bus index from pandapower using bus name
                 bus = pp.get_element_index(net, "bus", bus_name)
+                
                 pp.create_gen(net, bus, active_power, name =gen_name)
         
 class Lines(GridObjects):

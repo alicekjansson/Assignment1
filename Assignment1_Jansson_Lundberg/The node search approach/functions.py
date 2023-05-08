@@ -51,8 +51,12 @@ def find_bus(grid,terminal):
                 #Find terminal with the same breaker, this is busbar terminal
                 if (terminal3id != terminal2id) and (breakerid2 == breakerid3):
                     return get_node(grid,terminal3)
-                
+         
+# function to determine which connectivity node a bus, a load or a generator is associated with 
+# (halfway generalized to lines and 2-winding transformers too)                
 def get_cim_connectivity(self):
+    # for each bus/load/generator (or busbar): check which connectivity node the terminal connects to,
+    # and store that connectivity node in the grid object dataframe
     for item in self.list:
         n=0
         for terminal in self.grid.findall('cim:Terminal',ns):
@@ -63,16 +67,19 @@ def get_cim_connectivity(self):
                 else:
                     self.node2.append(terminal.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource'))
                     n+=1
+        # relevant when considering 2-terminal objects as well
         if n == 1:
             self.node2.append(False)
     
     self.df['node1']=self.node1
     self.df['node2']=self.node2
                 
-                
+# function to determine which bus a load/generator is connected to. 
 def find_bus_connection(self, buses, node_no = 'node1'):
     
     bus_name_list = []
+    # for each connectivity node for a load/generator - pair with corresponding bus connectivity node
+    # store corresponding bus name in data frame
     for node in self.df[node_no]: 
         bus_row = buses.df.loc[buses.df['node1'] == node]
         if bus_row.empty is False:
