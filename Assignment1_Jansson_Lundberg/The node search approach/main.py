@@ -19,10 +19,12 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 #Step 1: Parse XML files (choose reduced or microgrid)
-eq = ET.parse('MicroGridTestConfiguration_T1_NL_EQ_V2.xml')
-ssh = ET.parse('MicroGridTestConfiguration_T1_NL_SSH_V2.xml')
-#eq = ET.parse('Assignment_EQ_reduced.xml')
-#ssh = ET.parse('Assignment_SSH_reduced.xml')
+# eq = ET.parse('MicroGridTestConfiguration_T1_NL_EQ_V2.xml')         #First version microgrid
+# ssh = ET.parse('MicroGridTestConfiguration_T1_NL_SSH_V2.xml')       #First version microgrid
+eq = ET.parse('MicroGridTestConfiguration_T1_BE_EQ_V2-3')         #Second version microgrid
+ssh = ET.parse('MicroGridTestConfiguration_T1_BE_SSH_V2.xml')       #Second version microgrid
+#eq = ET.parse('Assignment_EQ_reduced.xml')                         #Reduced network
+#ssh = ET.parse('Assignment_SSH_reduced.xml')                       #Reduced network
 
 #Define namespace
 ns = {'cim':'http://iec.ch/TC57/2013/CIM-schema-cim16#',
