@@ -42,7 +42,7 @@ class Buses(GridObjects):
     def __init__(self, eq, ssh, ns, element_type = "BusbarSection"):
         super().__init__(eq, ssh, ns, element_type)
         self.get_cim_data()
-        
+
     def get_cim_data(self):
         voltage_lvl = []  
         connections=[]
