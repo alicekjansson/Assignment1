@@ -19,6 +19,7 @@ ns = {'cim':'http://iec.ch/TC57/2013/CIM-schema-cim16#',
       'md':"http://iec.ch/TC57/61970-552/ModelDescription/1#"}
 
 
+#The superclass for all grid objects is GridObjects
 class GridObjects:
     
     def __init__(self,eq,ssh,ns,element_type):
@@ -31,17 +32,16 @@ class GridObjects:
         self.list=self.grid.findall('cim:'+element_type,ns)
         self.node1 = []
         self.node2 = []
-        
+        self.node3 = []
         self.df['ID']=[element.attrib.get(ns['rdf']+'ID') for element in self.list]
         self.df['name']=[element.find('cim:IdentifiedObject.name',ns).text for element in self.list]
-        get_cim_connectivity(self)
-            
         
 class Buses(GridObjects):
     
     def __init__(self, eq, ssh, ns, element_type = "BusbarSection"):
         super().__init__(eq, ssh, ns, element_type)
         self.get_cim_data()
+        get_cim_connectivity(self)
 
     def get_cim_data(self):
         voltage_lvl = []  
@@ -66,7 +66,7 @@ class Buses(GridObjects):
         self.df['voltage'] = voltage_lvl
         self.df['Busbar']  = connections
         
-
+    #Function to create object in pandapower
     def create_pp_bus(self, net):
         for bus_name, bus_voltage in zip(self.df['name'], self.df['voltage']):  
             pp.create_bus(net, name=bus_name,vn_kv=bus_voltage)
@@ -83,7 +83,7 @@ class Loads(GridObjects):
                 if '#' + load_id  == element.attrib.get(ns['rdf']+'about'):
                     load_power.append(element.find('cim:EnergyConsumer.p',ns).text)
         self.df['p']=load_power
-        
+        get_cim_connectivity(self)
         
     def create_pp_load(self, net, buses):
         find_bus_connection(self, buses)
@@ -104,7 +104,7 @@ class Generators(GridObjects):
                 if '#' + gen_id  == element.attrib.get(ns['rdf']+'about'):
                     gen_power.append(element.find('cim:RotatingMachine.p',ns).text)
         self.df['p']=gen_power
-        
+        get_cim_connectivity(self)
         
     def create_pp_gen(self, net, buses):
         find_bus_connection(self, buses)
@@ -148,6 +148,7 @@ class Lines(GridObjects):
             volt.append(voltage)
             length.append(l)
             name.append(line.find('cim:IdentifiedObject.name',ns).text)
+        #Add data to dataframe
         self.df['Name']=name
         self.df['Length']=length
         self.df['VoltageLevel']=volt
@@ -171,10 +172,11 @@ class Transformers(GridObjects):
         
     def insert_transdata(self):
         subs=[]
-        node=[[],[]]
-        rateds=[[],[]]
-        ratedu=[[],[]]
+        node=[[],[],[]]
+        rateds=[[],[],[]]
+        ratedu=[[],[],[]]
         name=[]
+        types=[]
         for trans in self.trans_list:
             subid=trans.find('cim:Equipment.EquipmentContainer',ns).attrib.get(ns['rdf']+'resource')
             transid=trans.attrib.get(ns['rdf']+'ID')            #ID of PowerTransformer
@@ -192,34 +194,52 @@ class Transformers(GridObjects):
                             else:
                                 #Otherwise find busbar via breaker
                                 node[i].append(find_bus(self.grid,terminal))
-
                     rateds[i].append(transend.find('cim:PowerTransformerEnd.ratedS',ns).text)
                     ratedu[i].append(transend.find('cim:PowerTransformerEnd.ratedU',ns).text)
                     i=i+1
-
+            if i<3:                     #Check if the transformer has only two connections (2w transformer)
+                rateds[2].append(False) #Fill in data on 3rd connection
+                ratedu[2].append(False) #Fill in data on 3rd connection
+                types.append('2w')
+            else:                       #Otherwise we have a 3w transformer
+                types.append('3w')
             #Add substation info
             for sub in self.grid.findall('cim:Substation',ns):
                 if subid == '#' + sub.attrib.get(ns['rdf']+'ID'):
                     substation=sub.find('cim:IdentifiedObject.name',ns).text
             subs.append(substation)
             name.append(trans.find('cim:IdentifiedObject.name',ns).text)    
-            
+        #Add data to dataframe    
         self.df['Name']=name
         self.df['Substation']=subs
         self.df['HVRatedS']=rateds[0]
         self.df['HVRatedU']=ratedu[0]
         self.df['LVRatedS']=rateds[1]
         self.df['LVRatedU']=ratedu[1]
+        self.df['MVRatedS']=rateds[2]
+        self.df['MVRatedU']=ratedu[2]
         self.df['HVNode']=node[0]
         self.df['LVNode']=node[1]
+        self.df['MVNode']=node[1]
+        self.df['Type']=types
 
         return self.df
     
+    #Function to create transformer object in pandapower
     def create_pp_trans(self, net, buses):
         buslist=list(buses.df['name'])
-        for trans_name, bus1_name, bus2_name in zip(self.df['name'],self.df['HVNode'],self.df['LVNode']):
-            if ((bus1_name in buslist) and (bus2_name in buslist)):
-                bus1 = pp.get_element_index(net, "bus", bus1_name)
-                bus2=pp.get_element_index(net, "bus", bus2_name)
-                pp.create_transformer(net,bus1,bus2,'25 MVA 110/20 kV',trans_name)
+        for trans_name, bus1_name, bus2_name,bus3_name, trtype in zip(self.df['name'],self.df['HVNode'],self.df['LVNode'],self.df['MVNode'],self.df['Type']):
+            #2-winding transformer
+            if trtype == '2w':
+                if ((bus1_name in buslist) and (bus2_name in buslist)):
+                    bus1 = pp.get_element_index(net, "bus", bus1_name)
+                    bus2=pp.get_element_index(net, "bus", bus2_name)
+                    pp.create_transformer(net,bus1,bus2,'25 MVA 110/20 kV',trans_name)
+            #3-winding transformer
+            elif trtype == '3w':
+                if ((bus1_name in buslist) and (bus2_name in buslist)):
+                    bus1 = pp.get_element_index(net, "bus", bus1_name)
+                    bus2 = pp.get_element_index(net, "bus", bus2_name)
+                    bus3 = pp.get_element_index(net, "bus", bus3_name)
+                    pp.create_transformer3w(net,bus1,bus2,bus3,'63/25/38 MVA 110/20/10 kV',trans_name)
 
