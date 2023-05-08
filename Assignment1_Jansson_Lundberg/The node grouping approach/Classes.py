@@ -23,12 +23,16 @@ class GridObjects:
         self.df=pd.DataFrame()
         self.node1 = []
         self.node2 = []
+        self.node3 = []
+        self.trafo3 = 'no'
         if element_type != "node_group":
             self.list=self.grid.findall('cim:'+element_type,ns)
             self.df['ID']=[element.attrib.get(ns['rdf']+'ID') for element in self.list]
             self.df['name']=[element.find('cim:IdentifiedObject.name',ns).text for element in self.list]        
         
     def get_cim_connectivity(self):
+        
+
         for item in self.list:
             n=0
             for terminal in self.grid.findall('cim:Terminal',ns):
@@ -37,21 +41,42 @@ class GridObjects:
                         node_id = terminal.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource')
                         for node in self.grid.findall('cim:ConnectivityNode',ns):
                             if "#"+node.attrib.get(ns['rdf']+'ID') == node_id:
-                                self.node1.append(node.find('cim:ConnectivityNode.ConnectivityNodeContainer',ns).attrib.get(ns['rdf']+'resource'))
+                                node1 = node.find('cim:ConnectivityNode.ConnectivityNodeContainer',ns).attrib.get(ns['rdf']+'resource')
+                                self.node1.append(node1)
                                 n+=1
                                 break
-                    else:        
+                    if n == 1:        
                         node_id = terminal.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource')
                         for node in self.grid.findall('cim:ConnectivityNode',ns):
                             if "#" + node.attrib.get(ns['rdf']+'ID') == node_id:
-                                self.node2.append(node.find('cim:ConnectivityNode.ConnectivityNodeContainer',ns).attrib.get(ns['rdf']+'resource'))
-                                n+=1
-                                break
+                                node2 = node.find('cim:ConnectivityNode.ConnectivityNodeContainer',ns).attrib.get(ns['rdf']+'resource')
+                                if node2 != node1:
+                                    self.node2.append(node2)
+                                    n+=1
+                                    break
+                    else:
+                        node_id = terminal.find('cim:Terminal.ConnectivityNode',ns).attrib.get(ns['rdf']+'resource')
+                        for node in self.grid.findall('cim:ConnectivityNode',ns):
+                            if "#" + node.attrib.get(ns['rdf']+'ID') == node_id:
+                                node3 = node.find('cim:ConnectivityNode.ConnectivityNodeContainer',ns).attrib.get(ns['rdf']+'resource')
+                                if node3 != node1 and node3 != node2:
+                                    self.node3.append(node3)
+                                    self.trafo3 =item.find('cim:IdentifiedObject.name',ns).text 
+                                    n+=1
+                                    break
+                        
             if n == 1:
                 self.node2.append(False)
+                self.node3.append(False)
+            
+            if n == 2:
+                self.node3.append(False)
+                
+
         
         self.df['node1']=self.node1
         self.df['node2']=self.node2
+        self.df['node3']=self.node3
         
     def find_bus_connection(self, buses, node_no = 'node1'):
         
@@ -61,7 +86,10 @@ class GridObjects:
             if bus_row.empty is False:
                 bus_name_list.append(bus_row['name'].values[0])
             else:
-                bus_name_list.append(self.add_missing_bus(buses, idx, node_no))
+                if node_no != "node3" or (node_no == "node3" and self.trafo3 == "yes"):
+                    bus_name_list.append(self.add_missing_bus(buses, idx, node_no))
+                else:
+                    bus_name_list.append(False)
                              
         self.df[node_no+'_bus'] = bus_name_list
         
@@ -176,9 +204,16 @@ class Transformers(GridObjects):
 
 
     def create_pp_trans(self, net):
-        for trans_name, bus1_name, bus2_name in zip(self.df['name'],self.df['node1_bus'], self.df['node2_bus']):
-            if bus1_name != False and bus2_name != False:
-                std_type='25 MVA 110/20 kV'
-                bus1 = pp.get_element_index(net, "bus", bus1_name)
-                bus2 = pp.get_element_index(net, "bus", bus2_name)
-                pp.create_transformer(net, bus1, bus2, std_type, name =trans_name)
+            for trans_name, bus1_name, bus2_name, bus3_name in zip(self.df['name'],self.df['node1_bus'], self.df['node2_bus'], self.df['node3_bus']):
+                if  bus3_name != False:
+                    std_type= '63/25/38 MVA 110/20/10 kV'
+                    bus1 = pp.get_element_index(net, "bus", bus1_name)
+                    bus2 = pp.get_element_index(net, "bus", bus2_name)
+                    bus3 = pp.get_element_index(net, "bus", bus3_name)
+                    pp.create_transformer3w(net, bus1, bus2, bus3, std_type, name =trans_name)
+                
+                else:
+                    std_type='25 MVA 110/20 kV'
+                    bus1 = pp.get_element_index(net, "bus", bus1_name)
+                    bus2 = pp.get_element_index(net, "bus", bus2_name)
+                    pp.create_transformer(net, bus1, bus2, std_type, name =trans_name)
