@@ -15,8 +15,8 @@ from Classes import Buses, Lines,Transformers, Loads, Generators
 
 eq = ET.parse('MicroGridTestConfiguration_T1_NL_EQ_V2.xml')
 ssh = ET.parse('MicroGridTestConfiguration_T1_NL_SSH_V2.xml')
-eq = ET.parse('Assignment_EQ_reduced.xml')
-ssh = ET.parse('Assignment_SSH_reduced.xml')
+#eq = ET.parse('Assignment_EQ_reduced.xml')
+#ssh = ET.parse('Assignment_SSH_reduced.xml')
 eq = ET.parse('MicroGridTestConfiguration_T1_BE_EQ_V2-3.xml')         #Second version microgrid
 ssh = ET.parse('MicroGridTestConfiguration_T1_BE_SSH_V2.xml')       #Second version microgrid
 
@@ -41,11 +41,14 @@ gens = Generators(eq,ssh,ns)
 gens.get_cim_connectivity()
 gens.find_bus_connection(buses)
 
-
+print(buses.df)
 lines = Lines(eq,ssh,ns)
 lines.get_cim_connectivity()
+print(lines.df)
 lines.find_bus_connection(buses)
+print(lines.df)
 lines.find_bus_connection(buses,'node2')
+print(lines.df)
 
 trafos = Transformers(eq,ssh,ns)
 trafos.get_cim_connectivity()
@@ -53,9 +56,9 @@ trafos.find_bus_connection(buses)
 trafos.find_bus_connection(buses,'node2')
 
 trafos.find_bus_connection(buses,'node3')
-print(trafos.df)
-print(lines.df)
-print(buses.df)
+# print(trafos.df)
+# print(lines.df)
+# print(buses.df)
 
 
 net = pp.create_empty_network()
